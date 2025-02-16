@@ -5,10 +5,13 @@ from instagram_tail._model import ReelModel
 from instagram_tail._params_service import InstagramApiParamsServicePrivateAsync
 from instagram_tail._parsers import ReelInfoParser
 
+
 class InstagramClientAsync:
-    def __init__(self):
-        self.client = MediaInfoRequestAsync()
+    def __init__(self, proxy: None | str = None):
+        self.proxy = proxy
+        self.client = MediaInfoRequestAsync(proxy=self.proxy)
         self.parser = ReelInfoParser()
+
 
     async def reel(self, reel_id: str) -> ReelModel | None:
         data = await self.client.request_info(reel_id)
@@ -41,15 +44,16 @@ class MediaInfoRequestAsync:
         "Cache-Control": "no-cache",
     }
 
-    def __init__(self, headers: dict = None):
-        self.params_service = InstagramApiParamsServicePrivateAsync()
+    def __init__(self, headers: dict = None, proxy:str|None= None):
+        self.proxy = proxy
+        self.params_service = InstagramApiParamsServicePrivateAsync(proxy=self.proxy)
         self.headers: dict = self.DEFAULT_HEADERS if headers is None else headers
 
     async def request_info(self, reel_id: str) -> str | None:
         headers = self.headers.copy()
         cookies = {}
         settings = await self.params_service.params()
-        async with AsyncClient(headers=headers, cookies=cookies) as session:
+        async with AsyncClient(headers=headers, cookies=cookies, proxy=self.proxy) as session:
             cookies.update(
                 {"ig_nrcb": "1", "ps_l": "0", "ps_n": "0", **settings.cookie}
             )

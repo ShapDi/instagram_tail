@@ -24,7 +24,8 @@ class InstagramApiParamsServicePrivate:
         "LSD",
     ]
 
-    def __init__(self):
+    def __init__(self, proxy:str|None = None):
+        self.proxy = proxy
         self.csr_service = CrossSiteRequestTokenService()
         self.dyn_service = DynamicTokenService()
         self.__all_settings: dict[str, InstagramSettingDataClassPrivate] = {}
@@ -91,7 +92,7 @@ class InstagramApiParamsServicePrivate:
         if required_setting_names is None:
             required_setting_names = self.DEFAULT_REQUIRED_SETTINGS
         settings: dict[str, InstagramSettingDataClassPrivate] = {}
-        with httpx.Client() as session:
+        with httpx.Client(proxy=self.proxy, verify=False) as session:
             response = session.get(url=page_url)
             if (
                 response.status_code == 200
@@ -168,6 +169,7 @@ class InstagramApiParamsServicePrivate:
             res += alphabet[m]
         return res[::-1]
 
+
 class InstagramApiParamsServicePrivateAsync:
     MAIN_PAGE = "https://www.instagram.com/"
     DEFAULT_REQUIRED_SETTINGS = [
@@ -178,10 +180,11 @@ class InstagramApiParamsServicePrivateAsync:
         "LSD",
     ]
 
-    def __init__(self):
+    def __init__(self, proxy:str|None = None):
         self.csr_service = CrossSiteRequestTokenService()
         self.dyn_service = DynamicTokenService()
         self.__all_settings: dict[str, InstagramSettingDataClassPrivate] = {}
+        self.proxy = proxy
 
     async def params(
         self, required_settings: list[str] = None, page_url: str = MAIN_PAGE
@@ -245,7 +248,7 @@ class InstagramApiParamsServicePrivateAsync:
         if required_setting_names is None:
             required_setting_names = self.DEFAULT_REQUIRED_SETTINGS
         settings: dict[str, InstagramSettingDataClassPrivate] = {}
-        async with AsyncClient() as session:
+        async with AsyncClient(proxy=self.proxy) as session:
             response = await session.get(url=page_url)
             if (
                 response.status_code == 200
@@ -324,7 +327,6 @@ class InstagramApiParamsServicePrivateAsync:
 
 
 class CrossSiteRequestTokenService:
-
     @staticmethod
     def generate() -> str:
         arr = []
