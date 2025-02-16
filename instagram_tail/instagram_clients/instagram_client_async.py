@@ -1,22 +1,21 @@
-import httpx
+from httpx import AsyncClient
 import json
 
 from instagram_tail._model import ReelModel
-from instagram_tail._params_service import InstagramApiParamsServicePrivate
+from instagram_tail._params_service import InstagramApiParamsServicePrivateAsync
 from instagram_tail._parsers import ReelInfoParser
 
-
-class InstagramClient:
+class InstagramClientAsync:
     def __init__(self):
-        self.client = MediaInfoRequest()
+        self.client = MediaInfoRequestAsync()
         self.parser = ReelInfoParser()
 
-    def get(self, reel_id: str) -> ReelModel | None:
-        data = self.client.request_info(reel_id)
+    async def reel(self, reel_id: str) -> ReelModel | None:
+        data = await self.client.request_info(reel_id)
         return self.parser.parse(data)
 
 
-class MediaInfoRequest:
+class MediaInfoRequestAsync:
     DEFAULT_HEADERS = {
         "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
         "origin": "https://www.instagram.com",
@@ -43,14 +42,14 @@ class MediaInfoRequest:
     }
 
     def __init__(self, headers: dict = None):
-        self.params_service = InstagramApiParamsServicePrivate()
+        self.params_service = InstagramApiParamsServicePrivateAsync()
         self.headers: dict = self.DEFAULT_HEADERS if headers is None else headers
 
-    def request_info(self, reel_id: str) -> str | None:
+    async def request_info(self, reel_id: str) -> str | None:
         headers = self.headers.copy()
         cookies = {}
-        settings = self.params_service.params()
-        with httpx.Client(headers=headers, cookies=cookies) as session:
+        settings = await self.params_service.params()
+        async with AsyncClient(headers=headers, cookies=cookies) as session:
             cookies.update(
                 {"ig_nrcb": "1", "ps_l": "0", "ps_n": "0", **settings.cookie}
             )
@@ -89,7 +88,7 @@ class MediaInfoRequest:
                 "__comet_req": 7,
                 **settings.body,
             }
-            response = session.post(
+            response = await session.post(
                 url=f"https://www.instagram.com/api/graphql",
                 data=data,
                 headers=headers,

@@ -1,4 +1,5 @@
-from instagram_tail.instagram_clients.no_auth_client import InstagramClient
+from instagram_tail.instagram_clients.instagram_client import InstagramClient
+from instagram_tail.instagram_clients.instagram_client_async import InstagramClientAsync
 
 
 class InstagramApi:
@@ -17,3 +18,7 @@ class InstagramApi:
     def get_client(self):
         if self._session_id is None:
             return InstagramClient
+
+    def get_client_async(self):
+        if self._session_id is None:
+            return InstagramClientAsync
