@@ -1,0 +1,24 @@
+[project]
+name = "instagram_tail"
+version = "0.1.0"
+description = "Instagram data collection library"
+authors = [
+    {name = "shapranov dmitrii", email = "shapranov.work@gmail.com"},
+]
+dependencies = ["httpx>=0.28.1", "beautifulsoup4>=4.13.3"]
+requires-python = ">=3.11"
+readme = "README.md"
+license = {text = "MIT"}
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+
+[tool.pdm]
+distribution = true
+
+[dependency-groups]
+dev = [
+    "ruff>=0.9.6",
+]
