@@ -30,7 +30,7 @@ asyncio.run(test())
 
 ```
 
-## add proxy
+## Add proxy
 ```python
 
 proxy = "http://login:password@ip:port"
