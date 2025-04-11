@@ -1,6 +1,6 @@
 [project]
 name = "instagram_tail"
-version = "0.5.0"
+version = "0.1.0"
 description = "Instagram data collection library"
 authors = [
     {name = "shapranov dmitrii", email = "shapranov.work@gmail.com"},
@@ -21,4 +21,7 @@ distribution = true
 [dependency-groups]
 dev = [
     "ruff>=0.9.6",
+]
+docs = [
+    "mkdocs-material>=9.6.11",
 ]
