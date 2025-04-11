@@ -1,17 +1,53 @@
-# Welcome to MkDocs
+# Welcome to instagram_tail
 
-For full documentation visit [mkdocs.org](https://www.mkdocs.org).
+instagram_tail - Python parsing libraries is a tool that supports asynchronous and instagram content for user selection
 
-## Commands
+## Synchronous code example
 
-* `mkdocs new [dir-name]` - Create a new project.
-* `mkdocs serve` - Start the live-reloading docs server.
-* `mkdocs build` - Build the documentation site.
-* `mkdocs -h` - Print help message and exit.
+```python
+from instagram_tail import InstagramApi
 
-## Project layout
+client = InstagramApi().get_client()
+data = client().reel("C_Bq1wpvsON")
+```
 
-    mkdocs.yml    # The configuration file.
-    docs/
-        index.md  # The documentation homepage.
-        ...       # Other markdown pages, images and other files.
+from instagram_tail import InstagramApi
+
+## Asynchronous code example
+
+```python
+import asyncio
+from instagram_tail import InstagramApi
+
+client = InstagramApi().get_client_async()
+
+
+async def test():
+    data = await client().reel("C_Bq1wpvsON")
+    print(data)
+
+asyncio.run(test())
+
+```
+
+## add proxy
+```python
+
+proxy = "http://login:password@ip:port"
+
+import asyncio
+from instagram_tail import InstagramApi
+
+client = InstagramApi().get_client_async()
+
+
+async def test():
+    data = await client(proxy=proxy).reel("C_Bq1wpvsON")
+    print(data)
+
+asyncio.run(test())
+
+
+```
+
+with gratitude for the inspiration [bitt_moe](https://gitlab.com/Bitnik212)
