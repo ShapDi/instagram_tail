@@ -108,7 +108,7 @@ class MediaInfoRequest:
                 json_str = json_str[json_str.find("{") : json_str.rfind("}") + 1]
                 json_data = json.loads(json_str)
                 reason_string = f"Reason: error_id='{json_data.get('error')}' summary='{json_data.get('errorSummary')}', description='{json_data.get('errorDescription')}'"
-                # TODO Change exception type
+                # TODO Change exceptions type
                 raise Exception(
                     f"Error on receive data from instagram web api. {reason_string}"
                 )

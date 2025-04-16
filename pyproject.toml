@@ -5,7 +5,7 @@ description = "Instagram data collection library"
 authors = [
     {name = "shapranov dmitrii", email = "shapranov.work@gmail.com"},
 ]
-dependencies = ["httpx>=0.28.1", "beautifulsoup4>=4.13.3"]
+dependencies = ["httpx>=0.28.1", "beautifulsoup4>=4.13.3", "PyNaCl>=1.5.0", "pycryptodomex>=3.22.0"]
 requires-python = ">=3.10"
 readme = "README.md"
 license = {text = "MIT"}

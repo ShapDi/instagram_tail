@@ -16,8 +16,11 @@ class InstagramApi:
         self._proxy = proxy
 
     def get_client(self):
+        # if self._session_id is not None:
+        #     pass
         if self._session_id is None:
             return InstagramClient
+
 
     def get_client_async(self):
         if self._session_id is None:
