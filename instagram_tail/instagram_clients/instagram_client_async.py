@@ -1,9 +1,13 @@
+from asyncio import sleep
+
+import httpx
 from httpx import AsyncClient
 import json
 
 from instagram_tail._model import ReelModel
 from instagram_tail._params_service import InstagramApiParamsServicePrivateAsync
-from instagram_tail._parsers import ReelInfoParser
+from instagram_tail._parsers import ReelInfoParser, MediaInfoParserAuth
+from instagram_tail.instagram_auth.exceptions import InstagramSessionExpiredException
 
 
 class InstagramClientAsync:
@@ -16,6 +20,70 @@ class InstagramClientAsync:
     async def reel(self, reel_id: str) -> ReelModel | None:
         data = await self.client.request_info(reel_id)
         return self.parser.parse(data)
+
+
+class InstagramClientAsyncAuth:
+
+    def __init__(self, session_id: str):
+        self.__session_id = session_id
+        self.media_info = MediaInfoServiceAuth(MediaInfoClientAuth(session_id=session_id))
+
+    async def reels(self, reel_id: str) -> ReelModel | None:
+        cookies = {
+            "sessionid": self.__session_id
+        }
+        # Иногда куки мешают получить рилс. TODO переделать получение media_id через meta тэг
+        reel = await self.__process(await self.__try_one(reel_id))
+        if reel is None:
+            await sleep(1)
+            reel = await self.__process(await self.__try_one(reel_id, cookies))
+            if reel is None:
+                await sleep(1)
+                reel = await self.__process(self.__try_two(reel_id))
+                if reel is None:
+                    await sleep(1)
+                    reel = await self.__process(self.__try_two(reel_id, cookies))
+                    if reel is None:
+                        return None
+        return reel
+
+    async def __process(self, raw_html: str) -> ReelModel | None:
+        from bs4 import BeautifulSoup
+        parser = BeautifulSoup(raw_html, "html.parser")
+        all_scripts = parser.find_all("script")
+        for script in all_scripts:
+            print(script)
+            find_index = script.text.find("media_id")
+            if find_index != -1:
+                raw_media_id = script.text[find_index:find_index + 50]
+                print(raw_media_id)
+
+                media_id = self.__parse_media_id(raw_media_id)
+                if media_id is not None:
+                    media_info = await self.media_info.get_info("3611841265983443228")
+                    return media_info
+
+    @classmethod
+    async def __try_one(cls, reel_id: str, cookies: dict | None = None) -> str | None:
+        async with AsyncClient(cookies=cookies) as session:
+            response = await session.get(f"https://www.instagram.com/reel/{reel_id}/")
+            if response.status_code == 200:
+                return response.text
+
+    @classmethod
+    def __try_two(cls, reel_id: str, cookies: dict | None = None) -> str | None:
+        response = httpx.get(f"https://www.instagram.com/reel/{reel_id}/", cookies=cookies)
+        if response.status_code == 200:
+            return response.text
+
+    @classmethod
+    def __parse_media_id(cls, raw_media_id: str) -> str | None:
+        try:
+            media_id = raw_media_id.split('"')[2]
+            return media_id
+        except Exception as e:
+            return None
+
 
 
 class MediaInfoRequestAsync:
@@ -115,3 +183,53 @@ class MediaInfoRequestAsync:
             if response.headers.get("content-type").split(";")[0] == "text/html":
                 raise Exception("Error on request instagram web api. Wrong request")
         return None
+
+
+class MediaInfoClientAuth:
+    USER_AGENT = "'User-Agent':'Instagram 76.0.0.15.395 Android (24/7.0; 640dpi; 1440x2560; samsung; SM-G930F; herolte; samsungexynos8890; en_US; 138226743)'"
+
+    def __init__(
+            self,
+            session_id: str,
+            instagram_app_id_header: str = "936619743392459"
+    ):
+        self.__headers = {
+            "x-ig-app-id": instagram_app_id_header,
+            "user-agent": self.USER_AGENT,
+            "cookie": f"sessionid={session_id};"
+        }
+
+    async def get(self, media_id: str) -> str | None:
+        self.__headers.update(
+            {
+                "Referer": f"https://www.instagram.com/reel/DIf1n68ClEc/",
+
+            }
+        )
+        async with AsyncClient(headers=self.__headers) as session:
+
+            # response = await session.get(f"https://www.instagram.com/api/v1/media/{media_id}/info/")
+            response = await session.get(f"https://i.instagram.com/api/v1/media/3611841265983443228/info/")
+            # response = await session.get(f"https://www.instagram.com/api/graphql")
+            print(response.status_code)
+            print(response.content)
+            if response.status_code == 200 and response.headers.get("content-type") == "application/json":
+                return response.text
+            else:
+                return None
+
+
+class MediaInfoServiceAuth:
+
+    def __init__(self, client: MediaInfoClientAuth, parser: MediaInfoParserAuth = MediaInfoParserAuth()):
+        self.__client = client
+        self.__parser = parser
+
+    async def get_info(self, media_id: str) -> ReelModel | None:
+        response_text = await self.__client.get(media_id)
+        if response_text is not None:
+            return self.__parser.parse(response_text)
+        else:
+            raise InstagramSessionExpiredException("Maybe your sessionid is expired or invalid")
+
+
