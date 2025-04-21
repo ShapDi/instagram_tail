@@ -38,7 +38,7 @@ class ReelVideo:
 @dataclass
 class ReelModel:
     media_id: str
-    publish_date: str
+    # publish_date: str
     code: str
     description: str
     duration: float

@@ -20,6 +20,7 @@ class InstagramApi:
     async def get_session_user_async(self):
         user, session_id = await WebLoginService().login_async(self._username, self._password)
         self._session_id = session_id
+        print(f'Session: {session_id}')
         self.user_id = user.userId
         return self
     # ? Зачем он нужен

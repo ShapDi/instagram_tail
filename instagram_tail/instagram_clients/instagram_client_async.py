@@ -1,4 +1,7 @@
+import asyncio
+import re
 from asyncio import sleep
+from urllib.parse import quote
 
 import httpx
 from httpx import AsyncClient
@@ -45,23 +48,96 @@ class InstagramClientAsyncAuth:
                     reel = await self.__process(self.__try_two(reel_id, cookies))
                     if reel is None:
                         return None
+        print(f'Reel: {reel}')
         return reel
+
+    async def get_all_posts(self, username: str) -> list:
+        headers = {
+            'user-agent': 'Mozilla/5.0',
+            'x-ig-app-id': '936619743392459',
+            'x-instagram-ajax': '1',
+            'x-requested-with': 'XMLHttpRequest',
+            'x-csrftoken': 'ND-8ABfgmlHuuudw0890yZ',
+            'referer': f'https://www.instagram.com/{username}/',
+        }
+
+        cookies = {
+            "sessionid": self.__session_id,
+            "csrftoken": 'ND-8ABfgmlHuuudw0890yZ',
+            'ds_user_id': '69626403900'
+        }
+
+        async with AsyncClient(headers=headers, cookies=cookies) as session:
+            async def get_user_id() -> str:
+                url = f"https://www.instagram.com/{username}/"
+                r = await session.get(url)
+                r.raise_for_status()
+                match = re.search(r'"profilePage_([0-9]+)"', r.text)
+                if match:
+                    return match.group(1)
+                raise Exception('User id не найден')
+
+            user_id = await get_user_id()
+
+            posts = []
+            has_next_page = True
+            end_cursor = None
+            doc_id = '8931245513664134'
+
+            while has_next_page:
+                variables = {
+                    "after":"QVFDV0ZtRWtwYWh5OXhiMlIzaHIybmI0NzRoUjdwZDNCMXgtMENBTzF2ajROMVFKbXM5bmtsR3AwLWFiQjNsZVpBWFNDczB4NTR5Mld5UGVwbmpvTEU1Tg==",
+                    "before":None,
+                    "data":{"include_feed_video":True,"page_size":12,"target_user_id":"7830106401"},
+                    "first":4,
+                    "last":None
+                }
+                if end_cursor:
+                    variables['after'] = end_cursor
+
+                variables_str = quote(json.dumps(variables, separators=(',', ':')))
+                url = f"https://www.instagram.com/graphql/query/?doc_id={doc_id}&variables={variables_str}"
+
+                r = await session.get(url)
+
+                data = r.json()
+
+                media = data['data']['xdt_api__v1__clips__user__connection_v2']
+                edges = media['edges']
+
+                for edge in edges:
+                    node = edge['node']
+                    print(json.dumps(node, indent=2, ensure_ascii=False))
+                    # print(node)
+                    # print(f'https://www.instagram.com/p/{node['media']['code']}/')
+                    posts.append({
+                        'view_count': node.get('video_view_count'),
+                        # 'like_count': node['view_count'],
+                        # 'comment_count': node['edge_media_to_comment']['count'],
+                    })
+
+                page_info = media['page_info']
+                has_next_page = page_info['has_next_page']
+                end_cursor = page_info['end_cursor']
+
+                await asyncio.sleep(1)
+
+        # for post in posts:
+        #     print(post)
+
+        return posts
 
     async def __process(self, raw_html: str) -> ReelModel | None:
         from bs4 import BeautifulSoup
         parser = BeautifulSoup(raw_html, "html.parser")
-        all_scripts = parser.find_all("script")
-        for script in all_scripts:
-            print(script)
-            find_index = script.text.find("media_id")
-            if find_index != -1:
-                raw_media_id = script.text[find_index:find_index + 50]
-                print(raw_media_id)
+        meta_tag = parser.find('meta', attrs={'property': 'al:ios:url'})
 
-                media_id = self.__parse_media_id(raw_media_id)
-                if media_id is not None:
-                    media_info = await self.media_info.get_info("3611841265983443228")
-                    return media_info
+        if meta_tag:
+            content = meta_tag.get('content', '')
+            if 'media?id=' in content:
+                media_id = content.split('media?id=')[-1]
+                media_info = await self.media_info.get_info(media_id)
+                return media_info
 
     @classmethod
     async def __try_one(cls, reel_id: str, cookies: dict | None = None) -> str | None:
@@ -195,25 +271,28 @@ class MediaInfoClientAuth:
     ):
         self.__headers = {
             "x-ig-app-id": instagram_app_id_header,
-            "user-agent": self.USER_AGENT,
-            "cookie": f"sessionid={session_id};"
+            'User-Agent':'Instagram 76.0.0.15.395 Android (24/7.0; 640dpi; 1440x2560; samsung; SM-G930F; herolte; samsungexynos8890; en_US; 138226743)',
+        }
+
+        self.__cookies = {
+                "sessionid": session_id,
+                "csrftoken": 'ND-8ABfgmlHuuudw0890yZ',
+                'ds_user_id': '69626403900'
         }
 
     async def get(self, media_id: str) -> str | None:
-        self.__headers.update(
-            {
-                "Referer": f"https://www.instagram.com/reel/DIf1n68ClEc/",
-
-            }
-        )
-        async with AsyncClient(headers=self.__headers) as session:
-
-            # response = await session.get(f"https://www.instagram.com/api/v1/media/{media_id}/info/")
-            response = await session.get(f"https://i.instagram.com/api/v1/media/3611841265983443228/info/")
+        # self.__headers.update(
+        #     {
+        #         "Referer": f"https://www.instagram.com/reel/DIf1n68ClEc/",
+        #     }
+        # )
+        async with AsyncClient(headers=self.__headers, cookies=self.__cookies) as session:
+            response = await session.get(f"https://www.instagram.com/api/v1/media/{media_id}/info/")
+            # response = await session.get(f"https://i.instagram.com/api/v1/media/3611841265983443228/info/")
             # response = await session.get(f"https://www.instagram.com/api/graphql")
-            print(response.status_code)
-            print(response.content)
-            if response.status_code == 200 and response.headers.get("content-type") == "application/json":
+            # print(response.status_code)
+            # print(response.content)
+            if response.status_code == 200 and "application/json" in response.headers.get("content-type"):
                 return response.text
             else:
                 return None
@@ -227,9 +306,10 @@ class MediaInfoServiceAuth:
 
     async def get_info(self, media_id: str) -> ReelModel | None:
         response_text = await self.__client.get(media_id)
+        print(f"ID: {media_id}, Response: {response_text}")
         if response_text is not None:
             return self.__parser.parse(response_text)
         else:
-            raise InstagramSessionExpiredException("Maybe your sessionid is expired or invalid")
+            raise InstagramSessionExpiredException("Maybe your session id is expired or invalid")
 
 

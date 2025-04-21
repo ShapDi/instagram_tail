@@ -22,7 +22,7 @@ class ReelInfoParser(JsonParser):
             )
         return ReelModel(
             media_id=content.get("id"),
-            publish_date=datetime.datetime.utcfromtimestamp(int(content.get("taken_at_timestamp"))),
+            # publish_date=datetime.datetime.utcfromtimestamp(int(content.get("taken_at_timestamp"))),
             code=content.get("shortcode"),
             description=""
             if content.get("edge_media_to_caption", {}).get("edges", []) == []
@@ -60,7 +60,6 @@ class ReelInfoParser(JsonParser):
 
 
 class MediaInfoParserAuth(JsonParser):
-
     @staticmethod
     def parse(raw_json: str) -> ReelModel | None:
         parsed: dict = json.loads(raw_json)
