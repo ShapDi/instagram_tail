@@ -10,3 +10,10 @@ class InstagramShortUser:
     has_onboarded_to_text_post_app: bool
     status: str
     reactivated: bool = False
+
+@dataclass
+class AuthorizedUser:
+    login: str | None
+    password: str | None
+    session_id: str | None
+    token: str | None

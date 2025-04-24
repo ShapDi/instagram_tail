@@ -1,10 +1,10 @@
 from urllib.parse import unquote
 
 from httpx import Client, AsyncClient
-from instagram_tail.instagram_auth.exceptions import InstagramSignInException, InstagramLoginNonceException, \
+from instagram_tail.auth.exceptions import InstagramSignInException, InstagramLoginNonceException, \
     CSRFTokenException
-from instagram_tail.instagram_auth.models import InstagramShortUser
-from instagram_tail.instagram_auth.password_util import PasswordUtilAsync
+from instagram_tail.auth.models import InstagramShortUser, AuthorizedUser
+from instagram_tail.auth.password_util import PasswordUtilAsync
 # PasswordUtil
 
 class WebLoginService:
@@ -67,7 +67,7 @@ class WebLoginService:
                     cookies[key] = value
 
                 if response_data.get("authenticated", False):
-                    return InstagramShortUser(**response_data), unquote(cookies["sessionid"])
+                    return InstagramShortUser(**response_data), AuthorizedUser(login=username, password=password, session_id=unquote(cookies["sessionid"]), token=unquote(cookies["csrftoken"]))
                 else:
                     raise InstagramSignInException(f"Error on sign in. Maybe wrong password", response)
             else:

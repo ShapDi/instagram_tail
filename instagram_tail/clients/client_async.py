@@ -1,35 +1,67 @@
 import asyncio
-import re
+import json
+import random
+from abc import ABC, abstractmethod
 from asyncio import sleep
-from urllib.parse import quote
 
 import httpx
 from httpx import AsyncClient
-import json
 
-from instagram_tail._model import ReelModel
+from instagram_tail._model import ReelModel, CollectedData, Account, PlainPost, Post, PostModel
 from instagram_tail._params_service import InstagramApiParamsServicePrivateAsync
 from instagram_tail._parsers import ReelInfoParser, MediaInfoParserAuth
-from instagram_tail.instagram_auth.exceptions import InstagramSessionExpiredException
+from instagram_tail._scraper import Scraper
+from instagram_tail.auth.exceptions import InstagramSessionExpiredException
+from instagram_tail.utils._types import PostType
 
 
-class InstagramClientAsync:
+class Client(ABC):
+    def __init__(self, proxy: str | None = None):
+        self._scraper = Scraper()
+        self._proxy = proxy
+
+class ClientPublic(Client):
     def __init__(self, proxy: None | str = None):
-        self.proxy = proxy
-        self.client = MediaInfoRequestAsync(proxy=self.proxy)
+        super().__init__(proxy)
+        self.client = MediaInfoRequestAsync(proxy=proxy)
         self.parser = ReelInfoParser()
 
+    async def get_full_posts(self, plain_posts: list[PlainPost], session: AsyncClient) -> list[Post]:
+        posts: list[Post] = []
+
+        for post in plain_posts:
+            if post.type == PostType.Post:
+                data = await self.post(post.id, session)
+                posts.append(data)
+            elif post.type == PostType.Reel:
+                data = await self.reel(post.id)
+                posts.append(data)
+
+            timeout = random.uniform(0.5, 1.5)
+            await asyncio.sleep(timeout)
+
+        return posts
 
     async def reel(self, reel_id: str) -> ReelModel | None:
         data = await self.client.request_info(reel_id)
         return self.parser.parse(data)
 
+    async def post(self, post_id: str, session: AsyncClient) -> PostModel:
+        data = await self._scraper.get_post_info(post_id, session)
+        return data
 
-class InstagramClientAsyncAuth:
 
-    def __init__(self, session_id: str):
+class ClientPrivate(Client):
+    def __init__(self, session_id: str, proxy: str | None = None):
+        super().__init__(proxy)
         self.__session_id = session_id
         self.media_info = MediaInfoServiceAuth(MediaInfoClientAuth(session_id=session_id))
+
+    async def get_account_data(self, username: str, session: AsyncClient) -> Account:
+        return await self._scraper.get_account_data(username, session)
+
+    async def get_plain_posts_data(self, username: str, session: AsyncClient) -> list[PlainPost]:
+        return await self._scraper.get_all_posts(username, session)
 
     async def reels(self, reel_id: str) -> ReelModel | None:
         cookies = {
@@ -48,84 +80,7 @@ class InstagramClientAsyncAuth:
                     reel = await self.__process(self.__try_two(reel_id, cookies))
                     if reel is None:
                         return None
-        print(f'Reel: {reel}')
         return reel
-
-    async def get_all_posts(self, username: str) -> list:
-        headers = {
-            'user-agent': 'Mozilla/5.0',
-            'x-ig-app-id': '936619743392459',
-            'x-instagram-ajax': '1',
-            'x-requested-with': 'XMLHttpRequest',
-            'x-csrftoken': 'ND-8ABfgmlHuuudw0890yZ',
-            'referer': f'https://www.instagram.com/{username}/',
-        }
-
-        cookies = {
-            "sessionid": self.__session_id,
-            "csrftoken": 'ND-8ABfgmlHuuudw0890yZ',
-            'ds_user_id': '69626403900'
-        }
-
-        async with AsyncClient(headers=headers, cookies=cookies) as session:
-            async def get_user_id() -> str:
-                url = f"https://www.instagram.com/{username}/"
-                r = await session.get(url)
-                r.raise_for_status()
-                match = re.search(r'"profilePage_([0-9]+)"', r.text)
-                if match:
-                    return match.group(1)
-                raise Exception('User id не найден')
-
-            user_id = await get_user_id()
-
-            posts = []
-            has_next_page = True
-            end_cursor = None
-            doc_id = '8931245513664134'
-
-            while has_next_page:
-                variables = {
-                    "after":"QVFDV0ZtRWtwYWh5OXhiMlIzaHIybmI0NzRoUjdwZDNCMXgtMENBTzF2ajROMVFKbXM5bmtsR3AwLWFiQjNsZVpBWFNDczB4NTR5Mld5UGVwbmpvTEU1Tg==",
-                    "before":None,
-                    "data":{"include_feed_video":True,"page_size":12,"target_user_id":"7830106401"},
-                    "first":4,
-                    "last":None
-                }
-                if end_cursor:
-                    variables['after'] = end_cursor
-
-                variables_str = quote(json.dumps(variables, separators=(',', ':')))
-                url = f"https://www.instagram.com/graphql/query/?doc_id={doc_id}&variables={variables_str}"
-
-                r = await session.get(url)
-
-                data = r.json()
-
-                media = data['data']['xdt_api__v1__clips__user__connection_v2']
-                edges = media['edges']
-
-                for edge in edges:
-                    node = edge['node']
-                    print(json.dumps(node, indent=2, ensure_ascii=False))
-                    # print(node)
-                    # print(f'https://www.instagram.com/p/{node['media']['code']}/')
-                    posts.append({
-                        'view_count': node.get('video_view_count'),
-                        # 'like_count': node['view_count'],
-                        # 'comment_count': node['edge_media_to_comment']['count'],
-                    })
-
-                page_info = media['page_info']
-                has_next_page = page_info['has_next_page']
-                end_cursor = page_info['end_cursor']
-
-                await asyncio.sleep(1)
-
-        # for post in posts:
-        #     print(post)
-
-        return posts
 
     async def __process(self, raw_html: str) -> ReelModel | None:
         from bs4 import BeautifulSoup
@@ -159,7 +114,6 @@ class InstagramClientAsyncAuth:
             return media_id
         except Exception as e:
             return None
-
 
 
 class MediaInfoRequestAsync:
@@ -299,7 +253,6 @@ class MediaInfoClientAuth:
 
 
 class MediaInfoServiceAuth:
-
     def __init__(self, client: MediaInfoClientAuth, parser: MediaInfoParserAuth = MediaInfoParserAuth()):
         self.__client = client
         self.__parser = parser
@@ -311,5 +264,3 @@ class MediaInfoServiceAuth:
             return self.__parser.parse(response_text)
         else:
             raise InstagramSessionExpiredException("Maybe your session id is expired or invalid")
-
-
