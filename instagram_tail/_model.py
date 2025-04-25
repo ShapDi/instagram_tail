@@ -5,6 +5,10 @@ from instagram_tail.utils._types import PostType
 
 
 @dataclass
+class ParsingError:
+    message: str
+
+@dataclass
 class Account:
     user_id: str
     username: str
@@ -43,8 +47,8 @@ class PostModel(Post):
 
 @dataclass
 class CollectedData:
-    account: Account
-    posts: list[Post]
+    account: Account | ParsingError
+    posts: list[Post | ParsingError] | None
 
 
 @dataclass

@@ -1,12 +1,17 @@
+from configparser import ParsingError
+
+import httpx
 from httpx import AsyncClient
 
 from instagram_tail import InstagramApi
 from instagram_tail._model import CollectedData
 from instagram_tail.auth.models import AuthorizedUser
+from instagram_tail.utils._proxy import ProxyPool
 
 
 class Tail:
-    def __init__(self):
+    def __init__(self, proxy_pool: ProxyPool):
+        self._proxy_pool = proxy_pool
         self._headers = {
             'user-agent': 'Mozilla/5.0',
             'x-ig-app-id': '936619743392459',
@@ -14,29 +19,50 @@ class Tail:
             'x-requested-with': 'XMLHttpRequest',
         }
 
-    async def get_data_of_user(self, target_username: str, host_account: AuthorizedUser, proxy: str | None = None) -> CollectedData:
-        authorized_api = InstagramApi(username=host_account.login,
-                                    password=host_account.password,
-                                    session_id=host_account.session_id,
-                                    token=host_account.token,
-                                    proxy=proxy)
-        authorized_client = await authorized_api.get_private_client()
-        unauthorized_client = await InstagramApi(proxy=proxy).get_public_client()
+    async def get_data_of_user(self, target_username: str, host_account: AuthorizedUser) -> CollectedData:
+        proxy = await self._proxy_pool.get_proxy()
+        if not proxy:
+            print("Нет доступных прокси даже после ожидания")
+            return CollectedData(account=ParsingError('Все прокси отлетели'), posts=None)
 
-        cookies = {
-            "sessionid": authorized_api._session_id,
-            "csrftoken": authorized_api._token,
-            'ds_user_id': authorized_api._session_id.split(':')[0]
-        }
+        try:
+            authorized_api = InstagramApi(username=host_account.login,
+                                        password=host_account.password,
+                                        session_id=host_account.session_id,
+                                        token=host_account.token,
+                                        proxy=proxy.url)
+            authorized_client = await authorized_api.get_private_client()
+            unauthorized_client = await InstagramApi(proxy=proxy.url).get_public_client()
 
-        self._headers['x-csrftoken'] = authorized_api._token
+            cookies = {
+                "sessionid": authorized_api._session_id,
+                "csrftoken": authorized_api._token,
+                'ds_user_id': authorized_api._session_id.split(':')[0]
+            }
 
-        async with AsyncClient(headers=self._headers, cookies=cookies, proxy=proxy) as session:
-            account_data = await authorized_client.get_account_data(target_username, session)
-            print(f'Account: {account_data}')
-            plain_posts = await authorized_client.get_plain_posts_data(target_username, session)
+            self._headers['x-csrftoken'] = authorized_api._token
 
-            posts = await unauthorized_client.get_full_posts(plain_posts, session)
-            print(f'Posts: {posts}')
+            async with AsyncClient(headers=self._headers, cookies=cookies, proxy=proxy.url) as session:
+                account_data = await authorized_client.get_account_data(target_username, session)
+                print(f'Account: {account_data}')
 
-            return CollectedData(account=account_data, posts=posts)
+                if isinstance(account_data, ParsingError):
+                    return CollectedData(account=account_data, posts=None)
+
+                plain_posts = await authorized_client.get_plain_posts_data(target_username, session)
+
+                posts = await unauthorized_client.get_full_posts(plain_posts, session)
+                print(f'Posts: {posts}')
+
+                await self._proxy_pool.mark_success(proxy)
+                return CollectedData(account=account_data, posts=posts)
+
+        except httpx.RequestError as e:
+            print(f"Прокси упал: {proxy.url}, ошибка: {e}")
+            await self._proxy_pool.mark_fail(proxy)
+            return CollectedData(account=ParsingError(f"Прокси упал: {proxy.url}, ошибка: {e}"), posts=None)
+
+        except Exception as e:
+            print(f"Ошибка при парсинге: {e}")
+            await self._proxy_pool.mark_fail(proxy)
+            return CollectedData(account=ParsingError(f"Ошибка при парсинге: {e}"), posts=None)

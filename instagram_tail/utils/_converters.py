@@ -10,5 +10,7 @@ def media_type_to_post_type(type: str) -> PostType:
             return PostType.Post
         case 2:
             return PostType.Reel
+        case 8:
+            return PostType.Carousel
         case _:
             raise Exception(f'Unexpected media type. Type index: {type}')

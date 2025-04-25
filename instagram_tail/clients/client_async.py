@@ -7,7 +7,7 @@ from asyncio import sleep
 import httpx
 from httpx import AsyncClient
 
-from instagram_tail._model import ReelModel, CollectedData, Account, PlainPost, Post, PostModel
+from instagram_tail._model import ReelModel, CollectedData, Account, PlainPost, Post, PostModel, ParsingError
 from instagram_tail._params_service import InstagramApiParamsServicePrivateAsync
 from instagram_tail._parsers import ReelInfoParser, MediaInfoParserAuth
 from instagram_tail._scraper import Scraper
@@ -26,16 +26,23 @@ class ClientPublic(Client):
         self.client = MediaInfoRequestAsync(proxy=proxy)
         self.parser = ReelInfoParser()
 
-    async def get_full_posts(self, plain_posts: list[PlainPost], session: AsyncClient) -> list[Post]:
-        posts: list[Post] = []
+    async def get_full_posts(self, plain_posts: list[PlainPost], session: AsyncClient) -> list[Post | ParsingError]:
+        posts: list[Post | ParsingError] = []
 
         for post in plain_posts:
-            if post.type == PostType.Post:
-                data = await self.post(post.id, session)
-                posts.append(data)
-            elif post.type == PostType.Reel:
-                data = await self.reel(post.id)
-                posts.append(data)
+            if isinstance(post, ParsingError):
+                posts.append(post)
+                continue
+
+            # if post.type == PostType.Post or post.type == PostType.Carousel:
+            #     data = await self.post(post.id, session)
+            #     posts.append(data)
+            # elif post.type == PostType.Reel:
+            #     data = await self.reel(post.id)
+            #     posts.append(data)
+
+            data = await self._scraper.get_post_info(post.id, session)
+            posts.append(data)
 
             timeout = random.uniform(0.5, 1.5)
             await asyncio.sleep(timeout)
@@ -46,7 +53,7 @@ class ClientPublic(Client):
         data = await self.client.request_info(reel_id)
         return self.parser.parse(data)
 
-    async def post(self, post_id: str, session: AsyncClient) -> PostModel:
+    async def post(self, post_id: str, session: AsyncClient) -> PostModel | ParsingError:
         data = await self._scraper.get_post_info(post_id, session)
         return data
 
@@ -57,10 +64,10 @@ class ClientPrivate(Client):
         self.__session_id = session_id
         self.media_info = MediaInfoServiceAuth(MediaInfoClientAuth(session_id=session_id))
 
-    async def get_account_data(self, username: str, session: AsyncClient) -> Account:
+    async def get_account_data(self, username: str, session: AsyncClient) -> Account | ParsingError:
         return await self._scraper.get_account_data(username, session)
 
-    async def get_plain_posts_data(self, username: str, session: AsyncClient) -> list[PlainPost]:
+    async def get_plain_posts_data(self, username: str, session: AsyncClient) -> list[PlainPost | ParsingError]:
         return await self._scraper.get_all_posts(username, session)
 
     async def reels(self, reel_id: str) -> ReelModel | None:

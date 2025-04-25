@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 from json import JSONDecodeError
 
-from instagram_tail._model import ReelModel, ReelAuthor, ReelPreview, ReelVideo
+from instagram_tail._model import ReelModel, ReelAuthor, ReelPreview, ReelVideo, ParsingError
 
 
 class JsonParser:
@@ -12,17 +12,16 @@ class JsonParser:
 
 class ReelInfoParser(JsonParser):
     @staticmethod
-    def parse(raw_json: str):
+    def parse(raw_json: str) -> ReelModel | ParsingError:
         # print(f'Parse: {raw_json}')
         try:
-            content: dict = json.loads(raw_json).get("data").get("xdt_shortcode_media")
-            print(f'Parsing reel: media - {content}')
-            print(f'Parsing reel: caption - {content.get("edge_media_to_caption", {})}')
-            print(f'Parsing reel: edges - {content.get("edge_media_to_caption", {}).get("edges", [])[0]}')
-            print(f'Parsing reel: node - {content.get("edge_media_to_caption", {}).get("edges", [])[0].get('node', {})}')
+            content = json.loads(raw_json).get('data', {}).get('xdt_shortcode_media')
+
+            if content is None:
+                return ParsingError(f"Рилс недоступен (возможно, возрастное ограничение или геоблок)")
+
             node = content.get("edge_media_to_caption", {}).get("edges", [])[0].get('node', {})
             timestamp = int(node.get('created_at', ''))
-            print(f'Parsing reel: timestamp - {timestamp}')
             publish_date = datetime.fromtimestamp(timestamp)
         except JSONDecodeError as e:
             raise Exception(
