@@ -10,10 +10,14 @@ class JsonParser:
     def parse(raw_json: str): ...
 
 
+class AccountInfoParser(JsonParser):
+    @staticmethod
+    def parse(raw_json: str):
+        pass
+
 class ReelInfoParser(JsonParser):
     @staticmethod
     def parse(raw_json: str) -> ReelModel | ParsingError:
-        # print(f'Parse: {raw_json}')
         try:
             content = json.loads(raw_json).get('data', {}).get('xdt_shortcode_media')
 

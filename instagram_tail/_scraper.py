@@ -3,12 +3,12 @@ import json
 import random
 import re
 from datetime import datetime
-from urllib.parse import quote
+from urllib.parse import quote, urljoin
 
-import httpx
 from httpx import AsyncClient, HTTPStatusError
 
 from instagram_tail._model import Account, PlainPost, PostModel, ParsingError, ReelModel
+from instagram_tail.api.exceptions import AccountBlockedException
 from instagram_tail.utils import _converters
 
 
@@ -19,12 +19,16 @@ class Scraper:
         try:
             r = await session.get(url)
             r.raise_for_status()
-        except httpx.ProxyError as e:
-            print(f"Ошибка прокси: {e}")
         except HTTPStatusError as e:
             if e.response.status_code == 404:
                 return ParsingError(f"Аккаунт {username} не найден (возможно, удалён)")
-            return ParsingError(f"Ошибка при запросе страницы аккаунта: {e.response.status_code}")
+            elif e.response.status_code == 302:
+                print(f'Статус 302 при парсинге {username}. Текст: {e.response.headers}')
+                redirect_url = urljoin(url, r.headers.get('location', ''))
+                if '/challenge/' in redirect_url:
+                    raise AccountBlockedException(f'Аккаунт требует прохождения капчи. Редирект: {redirect_url}')
+                return ParsingError(f"При парсинге аккаунта {username} произошёл редирект (возможно аккаунт, с которого происходит парсинг заблокирован)")
+            return ParsingError(f"Ошибка при запросе страницы аккаунта {username}: {e.response.status_code}")
 
         match = re.search(r'"profilePage_([0-9]+)"', r.text)
         if match:
@@ -67,6 +71,7 @@ class Scraper:
         has_next_page = True
         end_cursor = None
         doc_id = '9456479251133434'
+        min_timestamp = 1744243200
 
         while has_next_page:
             variables = {
@@ -101,6 +106,9 @@ class Scraper:
                     posts.append(ParsingError("Отсутствует поле node в edge"))
                     continue
                 try:
+                    timestamp = node.get('taken_at')
+                    if timestamp < min_timestamp:
+                        break
                     post_type = _converters.media_type_to_post_type(node.get('media_type'))
                     shortcode = node.get('code')
                     if not shortcode:
