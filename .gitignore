@@ -86,7 +86,6 @@ celerybeat-schedule
 .env
 
 idea
-local/
 
 # virtualenv
 venv/
@@ -99,3 +98,5 @@ ENV/
 .ropeproject
 *.npy
 *.pkl
+
+/local/

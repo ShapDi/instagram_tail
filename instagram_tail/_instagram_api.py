@@ -60,3 +60,6 @@ class InstagramApi:
             return ClientPrivate(session_id=session_id, proxy=self._proxy)
 
         raise Exception('Trying to get private client while login data is unknown. Required login/password or session id/token on init')
+
+    async def get_mobile_client(self) -> ClientPrivate:
+        return ClientPrivate(session_id="", is_mobile=True, proxy=self._proxy)

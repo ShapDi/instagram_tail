@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 from typing import Optional, List
 
+from instagram_tail.api.exceptions import AllAccountsBlockedException
 from instagram_tail.utils._types import AccountStatus
 
 
@@ -27,9 +28,10 @@ class Account:
             "password": self.password,
             "session_id": self.session_id,
             "token": self.token,
-            "status": self.status,
+            "status": self.status.value,
             "last_checked": self.last_checked,
-            "fail_count": self.fail_count
+            "fail_count": self.fail_count,
+            "headers": self.headers
         }
 
 class AccountPool:
@@ -58,7 +60,7 @@ class AccountPool:
             working_accounts = [acc for acc in self._accounts if acc.status == AccountStatus.WORKING]
 
             if not working_accounts:
-                return None
+                raise AllAccountsBlockedException('Все аккаунты заблокированы')
 
             account = working_accounts[self._current_index % len(working_accounts)]
             self._current_index += 1
@@ -68,7 +70,12 @@ class AccountPool:
         async with self._lock:
             account.status = new_status
             if account.status != AccountStatus.WORKING:
-                self._current_index = self._current_index % len([acc for acc in self._accounts if acc.status == AccountStatus.WORKING])
+                working_accounts = [acc for acc in self._accounts if acc.status == AccountStatus.WORKING]
+                if working_accounts:
+                    self._current_index = self._current_index % len(working_accounts)
+                else:
+                    await self.save_accounts()
+                    raise AllAccountsBlockedException('Все аккаунты заблокированы')
             await self.save_accounts()
 
     async def set_account_session_and_token(self, account: Account, session_id:str, token: str):

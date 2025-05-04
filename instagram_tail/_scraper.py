@@ -2,17 +2,91 @@ import asyncio
 import json
 import random
 import re
+import urllib
 from datetime import datetime
 from urllib.parse import quote, urljoin
 
+import httpx
 from httpx import AsyncClient, HTTPStatusError
 
 from instagram_tail._model import Account, PlainPost, PostModel, ParsingError, ReelModel
-from instagram_tail.api.exceptions import AccountBlockedException
+from instagram_tail.api.exceptions import AccountBlockedException, ProxyBreakException
 from instagram_tail.utils import _converters
 
+from abc import ABC, abstractmethod
 
-class Scraper:
+
+class ScraperBase(ABC):
+    @abstractmethod
+    async def get_account_data(self, username: str, session: AsyncClient) -> Account | ParsingError:
+        pass
+
+    @abstractmethod
+    async def get_all_posts(self, username: str, session: AsyncClient) -> list[PlainPost | ParsingError]:
+        pass
+
+    async def get_post_info(self, post_id: str, session: AsyncClient) -> PostModel | ReelModel | ParsingError:
+        doc_id = '8845758582119845'
+        variables = {
+            "shortcode": post_id,
+            "fetch_tagged_user_count": None,
+            "hoisted_comment_id": None,
+            "hoisted_reply_id": None
+        }
+        variables_str = quote(json.dumps(variables, separators=(',', ':')))
+        url = f"https://www.instagram.com/graphql/query/?doc_id={doc_id}&variables={variables_str}"
+
+        try:
+            r = await session.get(url)
+            data = r.json()
+            if data.get('message') and 'Please wait a few minutes before you try again' in data['message']:
+                delay = random.uniform(1500, 1800)
+                print(f'IP временно заблочен. Ждёмс {delay} секунд')
+                await asyncio.sleep(delay)
+                r = await session.get(url)
+                data = r.json()
+                if data.get('message') and 'Please wait a few minutes before you try again' in data['message']:
+                    raise httpx.ProxyError('Прокси полетел')
+        except Exception as e:
+            return ParsingError(f"Ошибка запроса или декодирования JSON для поста {post_id}: {e}")
+
+        media = data.get('data', {}).get('xdt_shortcode_media')
+        if media.get('message') == "feedback_required":
+            return ParsingError('Получен бан неавторизованного аккаунта')
+        if media is None:
+            return ParsingError(f"Пост {post_id} недоступен (возможно, возрастное ограничение или геоблок)")
+
+        media_id = media.get('id')
+
+        description_node = media.get("edge_media_to_caption", {}).get("edges", [])
+        description = description_node[0]["node"]["text"] if description_node else None
+
+        timestamp = media.get('taken_at_timestamp', int)
+        publish_date = datetime.fromtimestamp(timestamp).strftime('%d.%m.%Y')
+
+        like_count = media.get('edge_media_preview_like', {}).get('count')
+
+        if not media.get('is_video'):
+            return PostModel(
+                media_id=media_id,
+                publish_date=publish_date,
+                code=post_id,
+                description=description,
+                like_count=like_count
+            )
+
+        return ReelModel(
+            media_id=media_id,
+            publish_date=publish_date,
+            code=post_id,
+            description=description,
+            like_count=like_count,
+            duration=media.get("video_duration"),
+            view_count=media.get("video_view_count"),
+            play_count=media.get("video_play_count")
+        )
+
+class Scraper(ScraperBase):
     async def get_account_data(self, username: str, session: AsyncClient) -> Account | ParsingError:
         url = f"https://www.instagram.com/{username}/"
 
@@ -127,55 +201,72 @@ class Scraper:
 
         return posts
 
-    async def get_post_info(self, post_id: str, session: AsyncClient) -> PostModel | ReelModel | ParsingError:
-        doc_id = '8845758582119845'
-        variables = {
-            "shortcode": post_id,
-            "fetch_tagged_user_count": None,
-            "hoisted_comment_id": None,
-            "hoisted_reply_id": None
-        }
-        variables_str = quote(json.dumps(variables, separators=(',', ':')))
-        url = f"https://www.instagram.com/graphql/query/?doc_id={doc_id}&variables={variables_str}"
 
-        try:
-            r = await session.get(url)
-            data = r.json()
-        except Exception as e:
-            return ParsingError(f"Ошибка запроса или декодирования JSON для поста {post_id}: {e}")
+class ScraperMobile(ScraperBase):
+    async def get_account_data(self, username: str, session: AsyncClient) -> Account | ParsingError:
+        encoded = urllib.parse.quote(username)
+        resp = await session.get(f"https://i.instagram.com/api/v1/users/search/?q={encoded}")
+        resp.raise_for_status()
+        users = resp.json().get("users", [])
+        user = next((u for u in users if u["username"] == username), None)
 
-        media = data.get('data', {}).get('xdt_shortcode_media')
-        if media.get('message') == "feedback_required":
-            return ParsingError('Получен бан неавторизованного аккаунта')
-        if media is None:
-            return ParsingError(f"Пост {post_id} недоступен (возможно, возрастное ограничение или геоблок)")
+        if not user:
+            return ParsingError(f'Не удалось найти {username}')
 
-        media_id = media.get('id')
+        user_id = user["pk"]
 
-        description_node = media.get("edge_media_to_caption", {}).get("edges", [])
-        description = description_node[0]["node"]["text"] if description_node else None
+        info_url = f"https://i.instagram.com/api/v1/users/{user_id}/info/"
+        r = await session.get(info_url)
+        r.raise_for_status()
+        data = r.json().get('user', {})
 
-        timestamp = media.get('taken_at_timestamp', int)
-        publish_date = datetime.fromtimestamp(timestamp).strftime('%d.%m.%Y')
-
-        like_count = media.get('edge_media_preview_like', {}).get('count')
-
-        if not media.get('is_video'):
-            return PostModel(
-                media_id=media_id,
-                publish_date=publish_date,
-                code=post_id,
-                description=description,
-                like_count=like_count
-            )
-
-        return ReelModel(
-            media_id=media_id,
-            publish_date=publish_date,
-            code=post_id,
-            description=description,
-            like_count=like_count,
-            duration = media.get("video_duration"),
-            view_count = media.get("video_view_count"),
-            play_count = media.get("video_play_count")
+        return Account(
+            user_id=user_id,
+            username=data['username'],
+            full_name=data['full_name'],
+            followers=data["follower_count"],
+            following=data["following_count"],
+            posts=data["media_count"]
         )
+
+    async def get_all_posts(self, username: str, session: AsyncClient) -> list[PlainPost | ParsingError]:
+        posts: list[PlainPost | ParsingError] = []
+        max_id = ""
+        min_timestamp = 1744243200
+
+        while True:
+            feed_url = f"https://i.instagram.com/api/v1/feed/user/{username}/?count=50"
+
+            if max_id:
+                feed_url += f"&max_id={max_id}"
+
+            r = await session.get(feed_url)
+
+            if r.status_code != 200:
+                posts.append(ParsingError(f"Не удалось выгрузить посты: {r.status_code} {r.text}"))
+                break
+
+            data = r.json()
+            items = data.get("items", [])
+
+            for item in items:
+                timestamp = item.get('taken_at')
+                if timestamp < min_timestamp:
+                    break
+                post_type = _converters.media_type_to_post_type(item.get('media_type'))
+                shortcode = item.get('code')
+                if not shortcode:
+                    posts.append(ParsingError("Отсутствует shortcode поста"))
+                    continue
+                posts.append(PlainPost(post_type, shortcode))
+
+            if not data.get("more_available"):
+                break
+            max_id = data.get("next_max_id")
+            if not max_id:
+                break
+
+            timeout = random.uniform(0.5, 1.5)
+            await asyncio.sleep(timeout)
+
+        return posts

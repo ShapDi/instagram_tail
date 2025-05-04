@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 from json import JSONDecodeError
 
-from instagram_tail._model import ReelModel, ReelAuthor, ReelPreview, ReelVideo, ParsingError
+from instagram_tail._model import ReelModel, ReelAuthor, ReelPreview, ReelVideo, ParsingError, PostModel
 
 
 class JsonParser:
@@ -17,31 +17,40 @@ class AccountInfoParser(JsonParser):
 
 class ReelInfoParser(JsonParser):
     @staticmethod
-    def parse(raw_json: str) -> ReelModel | ParsingError:
-        try:
-            content = json.loads(raw_json).get('data', {}).get('xdt_shortcode_media')
+    def parse(raw_json: str) -> PostModel | ReelModel | ParsingError:
+        media = json.loads(raw_json).get('data', {}).get('xdt_shortcode_media')
 
-            if content is None:
-                return ParsingError(f"Рилс недоступен (возможно, возрастное ограничение или геоблок)")
+        if media is None:
+            return ParsingError(f"Рилс недоступен (возможно, возрастное ограничение или геоблок)")
 
-            node = content.get("edge_media_to_caption", {}).get("edges", [])[0].get('node', {})
-            timestamp = int(node.get('created_at', ''))
-            publish_date = datetime.fromtimestamp(timestamp)
-        except JSONDecodeError as e:
-            raise Exception(
-                f"Error on parse json from instagram web api. Exception: {e}"
+        media_id = media.get('id')
+
+        description_node = media.get("edge_media_to_caption", {}).get("edges", [])
+        description = description_node[0]["node"]["text"] if description_node else None
+
+        timestamp = media.get('taken_at_timestamp', int)
+        publish_date = datetime.fromtimestamp(timestamp).strftime('%d.%m.%Y')
+
+        like_count = media.get('edge_media_preview_like', {}).get('count')
+
+        if not media.get('is_video'):
+            return PostModel(
+                media_id=media_id,
+                publish_date=publish_date,
+                code=media.get("shortcode"),
+                description=description,
+                like_count=like_count
             )
+
         return ReelModel(
-            media_id=content.get("id"),
-            code=content.get("shortcode"),
-            description=""
-            if content.get("edge_media_to_caption", {}).get("edges", []) == []
-            else node.get("text", ""),
-            publish_date=publish_date.strftime('%d.%m.%Y'),
-            duration=content.get("video_duration"),
-            like_count=content["edge_media_preview_like"]["count"],
-            view_count=content["video_view_count"],
-            play_count=content["video_play_count"],
+            media_id=media_id,
+            publish_date=publish_date,
+            code=media.get("shortcode"),
+            description=description,
+            like_count=like_count,
+            duration=media.get("video_duration"),
+            view_count=media.get("video_view_count"),
+            play_count=media.get("video_play_count")
         )
 
 

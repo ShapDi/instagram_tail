@@ -15,3 +15,12 @@ class ParseException(Exception):
 
 class AccountBlockedException(ParseException):
     pass
+
+class AllAccountsBlockedException(ParseException):
+    pass
+
+class ProxyBreakException(ParseException):
+    pass
+
+class AllProxyExpiredException(ParseException):
+    pass
