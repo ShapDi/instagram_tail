@@ -29,8 +29,9 @@ class Account:
             "token": self.token,
             "status": self.status,
             "last_checked": self.last_checked,
-            "fail_count": self.fail_count
+            "fail_count": self.fail_count,
         }
+
 
 class AccountPool:
     def __init__(self, json_path: str):
@@ -55,7 +56,9 @@ class AccountPool:
 
     async def get_working_account(self) -> Optional[Account]:
         async with self._lock:
-            working_accounts = [acc for acc in self._accounts if acc.status == AccountStatus.WORKING]
+            working_accounts = [
+                acc for acc in self._accounts if acc.status == AccountStatus.WORKING
+            ]
 
             if not working_accounts:
                 return None
@@ -68,26 +71,42 @@ class AccountPool:
         async with self._lock:
             account.status = new_status
             if account.status != AccountStatus.WORKING:
-                self._current_index = self._current_index % len([acc for acc in self._accounts if acc.status == AccountStatus.WORKING])
+                self._current_index = self._current_index % len(
+                    [
+                        acc
+                        for acc in self._accounts
+                        if acc.status == AccountStatus.WORKING
+                    ]
+                )
             await self.save_accounts()
 
-    async def set_account_session_and_token(self, account: Account, session_id:str, token: str):
+    async def set_account_session_and_token(
+        self, account: Account, session_id: str, token: str
+    ):
         async with self._lock:
             account.session_id = session_id
             account.token = token
             await self.save_accounts()
 
-    async def wait_for_working_account(self, check_interval: float = 5.0, timeout: Optional[float] = None) -> Account:
+    async def wait_for_working_account(
+        self, check_interval: float = 5.0, timeout: Optional[float] = None
+    ) -> Account:
         start_time = time.monotonic()
 
         while True:
             async with self._lock:
-                working_accounts = [acc for acc in self._accounts if acc.status == AccountStatus.WORKING]
+                working_accounts = [
+                    acc for acc in self._accounts if acc.status == AccountStatus.WORKING
+                ]
                 if working_accounts:
                     return random.choice(working_accounts)
 
             if timeout is not None and (time.monotonic() - start_time) > timeout:
-                raise TimeoutError(f"Не удалось найти рабочий аккаунт за {timeout} секунд.")
+                raise TimeoutError(
+                    f"Не удалось найти рабочий аккаунт за {timeout} секунд."
+                )
 
-            print(f"[AccountPool] Нет рабочих аккаунтов, жду {check_interval} секунд...")
+            print(
+                f"[AccountPool] Нет рабочих аккаунтов, жду {check_interval} секунд..."
+            )
             await asyncio.sleep(check_interval)

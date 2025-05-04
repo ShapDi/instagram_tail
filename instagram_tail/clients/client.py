@@ -12,7 +12,6 @@ class InstagramClient:
         self.client = MediaInfoRequest(proxy=self.proxy)
         self.parser = ReelInfoParser()
 
-
     def reel(self, reel_id: str) -> ReelModel | None:
         data = self.client.request_info(reel_id)
         return self.parser.parse(data)
@@ -44,7 +43,7 @@ class MediaInfoRequest:
         "Cache-Control": "no-cache",
     }
 
-    def __init__(self, headers: dict = None, proxy:str|None= None):
+    def __init__(self, headers: dict = None, proxy: str | None = None):
         self.proxy = proxy
         self.params_service = InstagramApiParamsServicePrivate(proxy=self.proxy)
         self.headers: dict = self.DEFAULT_HEADERS if headers is None else headers
@@ -53,7 +52,9 @@ class MediaInfoRequest:
         headers = self.headers.copy()
         cookies = {}
         settings = self.params_service.params()
-        with httpx.Client(headers=headers, cookies=cookies, proxy=self.proxy, verify=False, timeout=20) as session:
+        with httpx.Client(
+            headers=headers, cookies=cookies, proxy=self.proxy, verify=False, timeout=20
+        ) as session:
             cookies.update(
                 {"ig_nrcb": "1", "ps_l": "0", "ps_n": "0", **settings.cookie}
             )

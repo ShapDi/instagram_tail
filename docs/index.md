@@ -1,4 +1,4 @@
-# Welcome to instagram_tail
+# instagram_tail
 
 instagram_tail - Python parsing libraries is a tool that supports asynchronous and instagram content for user selection
 

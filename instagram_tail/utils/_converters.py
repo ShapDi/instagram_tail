@@ -2,7 +2,8 @@ from instagram_tail.utils._types import PostType
 
 
 def post_id_to_url(id: str) -> str:
-    return f'https://www.instagram.com/p/{id}/'
+    return f"https://www.instagram.com/p/{id}/"
+
 
 def media_type_to_post_type(type: str) -> PostType:
     match type:
@@ -13,4 +14,4 @@ def media_type_to_post_type(type: str) -> PostType:
         case 8:
             return PostType.Carousel
         case _:
-            raise Exception(f'Unexpected media type. Type index: {type}')
+            raise Exception(f"Unexpected media type. Type index: {type}")

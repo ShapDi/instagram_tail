@@ -2,7 +2,13 @@ import json
 from datetime import datetime
 from json import JSONDecodeError
 
-from instagram_tail._model import ReelModel, ReelAuthor, ReelPreview, ReelVideo, ParsingError
+from instagram_tail._model import (
+    ReelModel,
+    ReelAuthor,
+    ReelPreview,
+    ReelVideo,
+    ParsingError,
+)
 
 
 class JsonParser:
@@ -15,17 +21,24 @@ class AccountInfoParser(JsonParser):
     def parse(raw_json: str):
         pass
 
+
 class ReelInfoParser(JsonParser):
     @staticmethod
     def parse(raw_json: str) -> ReelModel | ParsingError:
         try:
-            content = json.loads(raw_json).get('data', {}).get('xdt_shortcode_media')
+            content = json.loads(raw_json).get("data", {}).get("xdt_shortcode_media")
 
             if content is None:
-                return ParsingError(f"Рилс недоступен (возможно, возрастное ограничение или геоблок)")
+                return ParsingError(
+                    f"Рилс недоступен (возможно, возрастное ограничение или геоблок)"
+                )
 
-            node = content.get("edge_media_to_caption", {}).get("edges", [])[0].get('node', {})
-            timestamp = int(node.get('created_at', ''))
+            node = (
+                content.get("edge_media_to_caption", {})
+                .get("edges", [])[0]
+                .get("node", {})
+            )
+            timestamp = int(node.get("created_at", ""))
             publish_date = datetime.fromtimestamp(timestamp)
         except JSONDecodeError as e:
             raise Exception(
@@ -37,7 +50,7 @@ class ReelInfoParser(JsonParser):
             description=""
             if content.get("edge_media_to_caption", {}).get("edges", []) == []
             else node.get("text", ""),
-            publish_date=publish_date.strftime('%d.%m.%Y'),
+            publish_date=publish_date.strftime("%d.%m.%Y"),
             duration=content.get("video_duration"),
             like_count=content["edge_media_preview_like"]["count"],
             view_count=content["video_view_count"],
@@ -67,4 +80,3 @@ class MediaInfoParserAuth(JsonParser):
             )
         else:
             return None
-

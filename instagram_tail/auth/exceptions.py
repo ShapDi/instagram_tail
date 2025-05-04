@@ -1,9 +1,7 @@
-
 from httpx import Response
 
 
 class ResponseException(Exception):
-
     def __init__(self, message: str, response: Response | None = None):
         super().__init__(self)
         self.response = response
@@ -19,12 +17,16 @@ class ResponseException(Exception):
 class InstagramSignInException(ResponseException):
     pass
 
+
 class InstagramSessionExpiredException(ResponseException):
     pass
 
+
 class InstagramLoginNonceException(ResponseException):
-    """ Error in receiving the login_nonce token """
+    """Error in receiving the login_nonce token"""
+
     pass
+
 
 class CSRFTokenException(ResponseException):
     pass

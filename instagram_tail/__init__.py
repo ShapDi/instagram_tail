@@ -1,3 +1,3 @@
-from instagram_tail._instagram_api import InstagramApi
+from instagram_tail._instagram_api import InstTailApiAsync
 
-__all__ = ["InstagramApi"]
+__all__ = ["InstTailApiAsync"]

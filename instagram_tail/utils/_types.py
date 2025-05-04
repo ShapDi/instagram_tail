@@ -2,9 +2,10 @@ from enum import Enum
 
 
 class PostType(Enum):
-    Post = 'Post'
-    Reel = 'Reel'
-    Carousel = 'Carousel'
+    Post = "Post"
+    Reel = "Reel"
+    Carousel = "Carousel"
+
 
 class AccountStatus(Enum):
     WORKING = "working"

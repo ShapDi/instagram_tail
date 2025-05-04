@@ -48,9 +48,11 @@ htmlcov/
 .coverage.*
 .cache
 nosetests.xml
-coverage.xml
+coverage.xmlпше
 *,cover
 .hypothesis/
+
+/local
 
 # Translations
 *.mo
@@ -68,7 +70,7 @@ instance/
 .scrapy
 
 # Sphinx documentation
-docs/_build/
+docs_old/_build/
 
 # PyBuilder
 target/

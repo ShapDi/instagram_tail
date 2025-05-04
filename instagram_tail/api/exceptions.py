@@ -13,5 +13,6 @@ class ParseException(Exception):
         else:
             return f"{self.message}"
 
+
 class AccountBlockedException(ParseException):
     pass

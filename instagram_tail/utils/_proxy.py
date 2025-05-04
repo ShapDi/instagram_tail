@@ -4,6 +4,7 @@ from typing import List, Optional
 
 MAX_FAILS = 5
 
+
 class Proxy:
     def __init__(self, url: str):
         self.url = url
@@ -25,13 +26,16 @@ class Proxy:
     def mark_used(self):
         self.last_used = time.time()
 
+
 class ProxyPool:
     def __init__(self, proxy_urls: List[str]):
         self._proxies: List[Proxy] = [Proxy(url) for url in proxy_urls]
         self._lock = asyncio.Lock()
         self._notifier = asyncio.Condition()
 
-    async def get_proxy(self, wait: bool = True, timeout: float = 30.0) -> Optional[Proxy]:
+    async def get_proxy(
+        self, wait: bool = True, timeout: float = 30.0
+    ) -> Optional[Proxy]:
         start = time.time()
         while True:
             async with self._lock:
@@ -67,4 +71,5 @@ class ProxyPool:
         async def notify():
             async with self._notifier:
                 self._notifier.notify_all()
+
         asyncio.create_task(notify())

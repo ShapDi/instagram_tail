@@ -11,6 +11,7 @@ class InstagramShortUser:
     status: str
     reactivated: bool = False
 
+
 @dataclass
 class AuthorizedUser:
     login: str | None

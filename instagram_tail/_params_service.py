@@ -24,7 +24,7 @@ class InstagramApiParamsServicePrivate:
         "LSD",
     ]
 
-    def __init__(self, proxy:str|None = None):
+    def __init__(self, proxy: str | None = None):
         self.proxy = proxy
         self.csr_service = CrossSiteRequestTokenService()
         self.dyn_service = DynamicTokenService()
@@ -180,7 +180,7 @@ class InstagramApiParamsServicePrivateAsync:
         "LSD",
     ]
 
-    def __init__(self, proxy:str|None = None):
+    def __init__(self, proxy: str | None = None):
         self.csr_service = CrossSiteRequestTokenService()
         self.dyn_service = DynamicTokenService()
         self.__all_settings: dict[str, InstagramSettingDataClassPrivate] = {}

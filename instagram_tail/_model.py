@@ -8,6 +8,7 @@ from instagram_tail.utils._types import PostType
 class ParsingError:
     message: str
 
+
 @dataclass
 class Account:
     user_id: str
@@ -17,14 +18,17 @@ class Account:
     following: int
     posts: int
 
+
 @dataclass
 class PlainPost:
     type: PostType
     id: str
 
+
 @dataclass
 class Post(ABC):
     pass
+
 
 @dataclass
 class ReelModel(Post):
@@ -37,6 +41,7 @@ class ReelModel(Post):
     view_count: int
     play_count: int
 
+
 @dataclass
 class PostModel(Post):
     media_id: str
@@ -44,6 +49,7 @@ class PostModel(Post):
     code: str
     description: str
     like_count: int
+
 
 @dataclass
 class CollectedData:
