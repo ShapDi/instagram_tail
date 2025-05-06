@@ -1,6 +1,6 @@
 [project]
 name = "instagram_tail"
-version = "0.1.0"
+version = "0.0.3"
 description = "Instagram data collection library"
 authors = [
     {name = "shapranov dmitrii", email = "shapranov.work@gmail.com"},
