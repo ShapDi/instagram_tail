@@ -22,7 +22,6 @@ distribution = true
 dev = [
     "ruff>=0.9.6",
     "pytest>=8.3.5",
-    "trio>=0.30.0",
 ]
 docs = [
     "mkdocs-material>=9.6.11",

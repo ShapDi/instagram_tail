@@ -349,7 +349,7 @@ class WebLoginService:
         url = (
             "https://www.instagram.com/api/v1/web/accounts/request_one_tap_login_nonce/"
         )
-        async with session.post(url, headers=headers, cookies=cookies) as response:
+        with session.post(url, headers=headers, cookies=cookies) as response:
             if response.status == 200 and response.content_type == "application/json":
                 data: dict = response.json()
                 return data.get("login_nonce", None)
@@ -359,12 +359,12 @@ class WebLoginService:
                 )
 
     @staticmethod
-    async def csrf_token(session) -> str:
+    def csrf_token(session) -> str:
         default_url = "https://www.instagram.com/data/shared_data/"
         fallback_url = "https://storage.yandexcloud.net/bit-static/instagram/shared_data.json"  # FIXME
 
-        async def try_download(url: str):
-            response = await session.get(url)
+        def try_download(url: str):
+            response = session.get(url)
             if (
                 response.status_code == 200
                 and response.headers.get("content-type") == "application/json"
@@ -380,9 +380,9 @@ class WebLoginService:
                 raise CSRFTokenException(f"error on get csrftoken", response)
 
         try:
-            return await try_download(default_url)
+            return try_download(default_url)
         except Exception:
-            return await try_download(fallback_url)
+            return try_download(fallback_url)
 
     @classmethod
     def csrf_token_header(cls, session: Client) -> (dict, str):

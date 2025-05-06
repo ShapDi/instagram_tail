@@ -25,6 +25,7 @@ class AccountInfoParser(JsonParser):
 class ReelInfoParser(JsonParser):
     @staticmethod
     def parse(raw_json: str) -> ReelModel | ParsingError:
+        print(raw_json)
         try:
             content = json.loads(raw_json).get("data", {}).get("xdt_shortcode_media")
 

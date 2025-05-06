@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 import random
 import re
 from datetime import datetime
@@ -20,6 +21,7 @@ class ScraperAsync:
 
         try:
             r = await session.get(url)
+            print(r)
             r.raise_for_status()
         except HTTPStatusError as e:
             if e.response.status_code == 404:
@@ -353,7 +355,7 @@ class Scraper:
 
             timeout = random.uniform(0.5, 1.5)
 
-            asyncio.sleep(timeout)
+            time.sleep(timeout)
 
         return posts
 

@@ -5,9 +5,10 @@ import httpx
 from httpx import AsyncClient, Client
 
 from instagram_tail.auth.web_login_service import WebLoginServiceAsync, WebLoginService
+from instagram_tail.clients.client import ClientPublic, ClientPrivate
 from instagram_tail.clients.client_async import (
     ClientPublicAsync,
-    ClientPrivateAsync, ClientPublic
+    ClientPrivateAsync
 )
 
 
@@ -124,7 +125,7 @@ class InstTailApiAsync(TailApi):
                 proxy=self._proxy,
             )
 
-        return ClientPublicAsync(proxy=self._proxy)
+        return ClientPublicAsync(proxy=self._proxy, session=self._session)
 
 class InstTailApi(TailApi):
     def __init__(
@@ -142,6 +143,25 @@ class InstTailApi(TailApi):
         self._proxy = proxy
         self.user_id = None
         self._session = None
+
+    def __enter__(self):
+        client = None
+        if self._username is not None and self._password is not None:
+            self._inst_session_id, self._token = self.get_session_user()
+        if self._inst_session_id is not None and self._token is not None:
+            self._init_session()
+        if client is None:
+            client = self.get_client()
+        return client
+
+    def __exit__(self,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: TracebackType | None = None,
+    ) -> None:
+        if self._session is not None:
+            self._session.close
+
 
     def _init_session(self):
         headers = {
@@ -162,11 +182,11 @@ class InstTailApi(TailApi):
             headers=headers, cookies=cookies, proxy=self._proxy, timeout=timeout
         )
 
-    @abstractmethod
+
     def close(self):
         self._session.close()
 
-    @abstractmethod
+
     def get_session_user(self) -> (str, str):
         short_user, user = WebLoginService().login(
             self._username, self._password
@@ -177,12 +197,12 @@ class InstTailApi(TailApi):
         self.user_id = short_user.userId
         return user.session_id, user.token
 
-    @abstractmethod
+
     def get_client(self) -> ClientPublic | ClientPrivate:
         if self._inst_session_id is not None and self._token is not None:
             if self._session is None:
                 self._init_session
-            return ClientPrivateAsync(
+            return ClientPrivate(
                 session=self._session,
                 inst_session_id=self._inst_session_id,
                 token=self._token,
@@ -194,11 +214,11 @@ class InstTailApi(TailApi):
             self._init_session()
             self._token = WebLoginService().csrf_token(self._session)
             print(self._token)
-            return ClientPrivateAsync(
+            return ClientPrivate(
                 session=self._session,
                 inst_session_id=self._inst_session_id,
                 token=self._token,
                 proxy=self._proxy,
             )
 
-        return ClientPublicAsync(proxy=self._proxy)
+        return ClientPublic(proxy=self._proxy)

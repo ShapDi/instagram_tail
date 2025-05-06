@@ -125,7 +125,7 @@ class PasswordUtil:
                     encryption.get("public_key"),
                 )
 
-        async with self.session as session:
+        with self.session as session:
             try:
                 return try_download(session, default_url)
             except Exception as e:

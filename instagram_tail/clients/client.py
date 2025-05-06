@@ -1,21 +1,43 @@
-import httpx
 import json
+import time
+import random
 
-from instagram_tail._model import ReelModel
+from httpx import Client
+from instagram_tail._model import ReelModel, PlainPost, ParsingError, Post, Account
 from instagram_tail._params_service import InstagramApiParamsServicePrivate
-from instagram_tail._parsers import ReelInfoParser
+from instagram_tail._parsers import ReelInfoParser, MediaInfoParserAuth
+from instagram_tail._scraper import Scraper
+from instagram_tail.auth.exceptions import InstagramSessionExpiredException
 
 
-class InstagramClient:
+class ClientPublic:
     def __init__(self, proxy: None | str = None):
-        self.proxy = proxy
-        self.client = MediaInfoRequest(proxy=self.proxy)
+        self._scraper = Scraper()
+        self._proxy = proxy
+        self.client = MediaInfoRequest(proxy=proxy)
         self.parser = ReelInfoParser()
 
-    def reel(self, reel_id: str) -> ReelModel | None:
-        data = self.client.request_info(reel_id)
-        return self.parser.parse(data)
+    def get_full_posts(
+        self, plain_posts: list[PlainPost], session: Client
+    ) -> list[Post | ParsingError]:
+        posts: list[Post | ParsingError] = []
 
+        for post in plain_posts:
+            if isinstance(post, ParsingError):
+                posts.append(post)
+                continue
+
+            data = self._scraper.get_post_info(post.id, session)
+            posts.append(data)
+
+            timeout = random.uniform(0.5, 1.5)
+            time.sleep(timeout)
+
+        return posts
+
+    def reel(self, reel_id: str) -> ReelModel | None:
+        data =self.client.request_info(reel_id)
+        return self.parser.parse(data)
 
 class MediaInfoRequest:
     DEFAULT_HEADERS = {
@@ -52,7 +74,7 @@ class MediaInfoRequest:
         headers = self.headers.copy()
         cookies = {}
         settings = self.params_service.params()
-        with httpx.Client(
+        with Client(
             headers=headers, cookies=cookies, proxy=self.proxy, verify=False, timeout=20
         ) as session:
             cookies.update(
@@ -116,3 +138,89 @@ class MediaInfoRequest:
             if response.headers.get("content-type").split(";")[0] == "text/html":
                 raise Exception("Error on request instagram web api. Wrong request")
         return None
+
+class ClientPrivate:
+    def __init__(
+        self, session, inst_session_id: str, token: str, proxy: str | None = None
+    ):
+        self._scraper = Scraper()
+        self._proxy = proxy
+        self.__session = session
+        self.__inst_session_id = inst_session_id
+        self.__token = token
+        self.media_info = MediaInfoServiceAuth(
+            MediaInfoClientAuth(inst_session_id=inst_session_id)
+        )
+
+    def get_account_data(self, username: str) -> Account | ParsingError:
+        account = self._scraper.get_account_data(username, self.__session)
+        return account
+
+    def get_plain_posts_data(
+        self, username: str,min_timestamp:int = 1744243200
+    ) -> list[PlainPost | ParsingError]:
+        posts = self._scraper.get_all_posts(username, self.__session, min_timestamp)
+        return posts
+
+
+
+class MediaInfoClientAuth:
+    USER_AGENT = "'User-Agent':'Instagram 76.0.0.15.395 Android (24/7.0; 640dpi; 1440x2560; samsung; SM-G930F; herolte; samsungexynos8890; en_US; 138226743)'"
+
+    def __init__(
+        self, inst_session_id: str, instagram_app_id_header: str = "936619743392459"
+    ):
+        self.__headers = {
+            "x-ig-app-id": instagram_app_id_header,
+            "User-Agent": "Instagram 76.0.0.15.395 Android (24/7.0; 640dpi; 1440x2560; samsung; SM-G930F; herolte; samsungexynos8890; en_US; 138226743)",
+        }
+
+        self.__cookies = {
+            "sessionid": inst_session_id,
+            "csrftoken": "ND-8ABfgmlHuuudw0890yZ",
+            "ds_user_id": "69626403900",
+        }
+
+    def get(self, media_id: str) -> str | None:
+        # self.__headers.update(
+        #     {
+        #         "Referer": f"https://www.instagram.com/reel/DIf1n68ClEc/",
+        #     }
+        # )
+        with Client(
+            headers=self.__headers, cookies=self.__cookies
+        ) as session:
+            response = session.get(
+                f"https://www.instagram.com/api/v1/media/{media_id}/info/"
+            )
+            # response = await session.get(f"https://i.instagram.com/api/v1/media/3611841265983443228/info/")
+            # response = await session.get(f"https://www.instagram.com/api/graphql")
+            # print(response.status_code)
+            # print(response.content)
+            if (
+                response.status_code == 200
+                and "application/json" in response.headers.get("content-type")
+            ):
+                return response.text
+            else:
+                return None
+
+
+class MediaInfoServiceAuth:
+    def __init__(
+        self,
+        client: MediaInfoClientAuth,
+        parser: MediaInfoParserAuth = MediaInfoParserAuth(),
+    ):
+        self.__client = client
+        self.__parser = parser
+
+    async def get_info(self, media_id: str) -> ReelModel | None:
+        response_text = self.__client.get(media_id)
+        print(f"ID: {media_id}, Response: {response_text}")
+        if response_text is not None:
+            return self.__parser.parse(response_text)
+        else:
+            raise InstagramSessionExpiredException(
+                "Maybe your session id is expired or invalid"
+            )

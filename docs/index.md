@@ -19,6 +19,7 @@ from instagram_tail import InstTailApiAsync
 async def test():
     client = InstTailApiAsync().get_client()
     data = await client.reel("C_Bq1wpvsON")
+    client.close()
 
 asyncio.run(test())
 
@@ -29,17 +30,16 @@ asyncio.run(test())
 
 proxy = "http://login:password@ip:port"
 
-import asyncio
-from instagram_tail import InstagramApi
 
-client = InstagramApi().get_client_async()
+from instagram_tail import InstTailApi
 
+tail_api = InstTailApi(proxy=proxy)
+client = tail_api.get_client()
+tail_api.close()
 
-async def test():
-    data = await client(proxy=proxy).reel("C_Bq1wpvsON")
-    print(data)
+data = client.reel("C_Bq1wpvsON")
+print(data)
 
-asyncio.run(test())
 
 
 ```
