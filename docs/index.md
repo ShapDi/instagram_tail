@@ -5,10 +5,7 @@ instagram_tail - Python parsing libraries is a tool that supports asynchronous a
 ## Synchronous code example
 
 ```python
-from instagram_tail import InstagramApi
 
-client = InstagramApi().get_client()
-data = client().reel("C_Bq1wpvsON")
 ```
 
 from instagram_tail import InstagramApi
@@ -17,14 +14,11 @@ from instagram_tail import InstagramApi
 
 ```python
 import asyncio
-from instagram_tail import InstagramApi
-
-client = InstagramApi().get_client_async()
-
+from instagram_tail import InstTailApiAsync
 
 async def test():
-    data = await client().reel("C_Bq1wpvsON")
-    print(data)
+    client = InstTailApiAsync().get_client()
+    data = await client.reel("C_Bq1wpvsON")
 
 asyncio.run(test())
 

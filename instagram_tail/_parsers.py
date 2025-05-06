@@ -30,7 +30,7 @@ class ReelInfoParser(JsonParser):
 
             if content is None:
                 return ParsingError(
-                    f"Рилс недоступен (возможно, возрастное ограничение или геоблок)"
+                    f"Reels is unavailable (possibly due to age restriction or geoblock)"
                 )
 
             node = (

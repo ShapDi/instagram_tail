@@ -70,3 +70,64 @@ class PasswordUtilAsync:
             except Exception as e:
                 print(e)
                 return await try_download(session, fallback_url)
+
+
+class PasswordUtil:
+    def __init__(self, session: Client | None = None):
+        self.session = session or Client()
+
+    def encrypt(self, password):
+        """
+        source: https://gist.github.com/lorenzodifuccia/c857afa47ede66db852e6a25c0a1a027
+        """
+        key_id, version, pub_key = self.public_keys()
+        key = Random.get_random_bytes(32)
+        iv = bytes([0] * 12)
+
+        time = int(datetime.datetime.now().timestamp())
+
+        aes = AES.new(key, AES.MODE_GCM, nonce=iv, mac_len=16)
+        aes.update(str(time).encode("utf-8"))
+        encrypted_password, cipher_tag = aes.encrypt_and_digest(
+            password.encode("utf-8")
+        )
+
+        pub_key_bytes = binascii.unhexlify(pub_key)
+        seal_box = SealedBox(PublicKey(pub_key_bytes))
+        encrypted_key = seal_box.encrypt(key)
+
+        encrypted = bytes(
+            [
+                1,
+                key_id,
+                *list(struct.pack("<h", len(encrypted_key))),
+                *list(encrypted_key),
+                *list(cipher_tag),
+                *list(encrypted_password),
+            ]
+        )
+        encrypted = base64.b64encode(encrypted).decode("utf-8")
+
+        return f"#PWD_INSTAGRAM_BROWSER:{version}:{time}:{encrypted}"
+
+    def public_keys(self) -> (int, int, str):
+        default_url = "https://www.instagram.com/data/shared_data/"
+        fallback_url = "https://storage.yandexcloud.net/bit-static/instagram/shared_data.json"  # FIXME
+
+        def try_download(session, url: str):
+            response = session.get(url)
+            if response.status_code == 200:
+                data: dict = response.json()
+                encryption: dict = data.get("encryption", {})
+                return (
+                    int(encryption.get("key_id")),
+                    int(encryption.get("version")),
+                    encryption.get("public_key"),
+                )
+
+        async with self.session as session:
+            try:
+                return try_download(session, default_url)
+            except Exception as e:
+                print(e)
+                return try_download(session, fallback_url)

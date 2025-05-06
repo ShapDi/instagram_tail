@@ -23,8 +23,6 @@ class InstagramSessionExpiredException(ResponseException):
 
 
 class InstagramLoginNonceException(ResponseException):
-    """Error in receiving the login_nonce token"""
-
     pass
 
 

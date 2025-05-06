@@ -58,7 +58,7 @@ class ProxyPool:
         async with self._lock:
             proxy.mark_fail()
             if proxy.fail_count >= MAX_FAILS:
-                print(f"Удаление прокси после {MAX_FAILS} неудач: {proxy.url}")
+                print(f"Removing a proxy after {MAX_FAILS} failures: {proxy.url}")
                 self._proxies.remove(proxy)
             self._notify()
 

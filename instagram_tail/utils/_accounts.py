@@ -42,7 +42,7 @@ class AccountPool:
 
     async def load_accounts(self):
         if not self.json_path.exists():
-            raise FileNotFoundError(f"Файл {self.json_path} не найден.")
+            raise FileNotFoundError(f"File {self.json_path} not found")
 
         with self.json_path.open("r", encoding="utf-8") as f:
             accounts_data = json.load(f)
@@ -103,10 +103,10 @@ class AccountPool:
 
             if timeout is not None and (time.monotonic() - start_time) > timeout:
                 raise TimeoutError(
-                    f"Не удалось найти рабочий аккаунт за {timeout} секунд."
+                    f"Could not find work account in {timeout} seconds"
                 )
 
-            print(
-                f"[AccountPool] Нет рабочих аккаунтов, жду {check_interval} секунд..."
-            )
+            # print(
+            #     f"[AccountPool] Нет рабочих аккаунтов, жду {check_interval} секунд..."
+            # )
             await asyncio.sleep(check_interval)
