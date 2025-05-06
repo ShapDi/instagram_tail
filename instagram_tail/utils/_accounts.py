@@ -20,6 +20,8 @@ class Account:
         self.last_checked = data.get("last_checked")
         self.fail_count = data.get("fail_count", 0)
         self.headers = data.get("headers")
+        self.proxy = data.get("proxy")
+        self.is_mobile = data.get("is_mobile")
 
     def to_dict(self) -> dict:
         return {
@@ -31,7 +33,9 @@ class Account:
             "status": self.status.value,
             "last_checked": self.last_checked,
             "fail_count": self.fail_count,
-            "headers": self.headers
+            "headers": self.headers,
+            "proxy": self.proxy,
+            "is_mobile": self.is_mobile
         }
 
 class AccountPool:
@@ -40,6 +44,9 @@ class AccountPool:
         self._accounts: List[Account] = []
         self._lock = asyncio.Lock()
         self._current_index = 0
+
+    def get_accounts_count(self) -> int:
+        return len(self._accounts)
 
     async def load_accounts(self):
         if not self.json_path.exists():
@@ -65,6 +72,15 @@ class AccountPool:
             account = working_accounts[self._current_index % len(working_accounts)]
             self._current_index += 1
             return account
+
+    async def get_all_working_accounts(self) -> Optional[List[Account]]:
+        async with self._lock:
+            working_accounts = [acc for acc in self._accounts if acc.status == AccountStatus.WORKING]
+
+            if not working_accounts:
+                raise AllAccountsBlockedException('Все аккаунты заблокированы')
+
+            return working_accounts
 
     async def mark_account_status(self, account: Account, new_status: AccountStatus):
         async with self._lock:

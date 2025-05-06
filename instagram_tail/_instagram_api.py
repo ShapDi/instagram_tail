@@ -51,7 +51,7 @@ class InstagramApi:
         return ClientPublic(proxy=self._proxy)
 
     async def get_private_client(self) -> ClientPrivate:
-        if self._session_id is not None and self._token is not None:
+        if self._session_id is not None:
             if self._token is None:
                 self._token = await WebLoginService().csrf_token(self._session_id)
             return ClientPrivate(session_id=self._session_id, proxy=self._proxy)
