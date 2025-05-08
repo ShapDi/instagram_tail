@@ -34,12 +34,7 @@ class ReelInfoParser(JsonParser):
                     f"Reels is unavailable (possibly due to age restriction or geoblock)"
                 )
 
-            node = (
-                content.get("edge_media_to_caption", {})
-                .get("edges", [])[0]
-                .get("node", {})
-            )
-            timestamp = int(node.get("created_at", ""))
+            timestamp = content.get("taken_at_timestamp", int)
             publish_date = datetime.fromtimestamp(timestamp)
         except JSONDecodeError as e:
             raise Exception(
@@ -50,7 +45,7 @@ class ReelInfoParser(JsonParser):
             code=content.get("shortcode"),
             description=""
             if content.get("edge_media_to_caption", {}).get("edges", []) == []
-            else node.get("text", ""),
+            else content.get("edge_media_to_caption", {}).get("edges", [])[0].get("node", {}).get("text", ""),
             publish_date=publish_date.strftime("%d.%m.%Y"),
             duration=content.get("video_duration"),
             like_count=content["edge_media_preview_like"]["count"],

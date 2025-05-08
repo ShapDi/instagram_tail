@@ -4,6 +4,7 @@ import random
 from abc import ABC
 import time
 
+import httpx
 from httpx import AsyncClient, Client
 
 from instagram_tail._model import (
@@ -15,7 +16,7 @@ from instagram_tail._model import (
 )
 from instagram_tail._params_service import InstagramApiParamsServicePrivateAsync, InstagramApiParamsServicePrivate
 from instagram_tail._parsers import ReelInfoParser, MediaInfoParserAuth
-from instagram_tail._scraper import ScraperAsync
+from instagram_tail._scraper import ScraperAsync, ScraperMobile
 from instagram_tail.auth.exceptions import InstagramSessionExpiredException
 
 
@@ -28,22 +29,47 @@ class ClientPublicAsync:
         self._session = session
 
     async def get_full_posts(
-        self, plain_posts: list[PlainPost],
-    ) -> list[Post | ParsingError]:
-        posts: list[Post | ParsingError] = []
-        async with AsyncClient(
-        ) as session:
+        self, plain_posts: list[PlainPost] | PlainPost
+    ) -> list[Post | ParsingError] | Post | ParsingError:
+        if not isinstance(plain_posts, list):
+            if isinstance(plain_posts, ParsingError):
+                return plain_posts
+
+            data = await self.client.request_info(plain_posts.id)
+            data = self.parser.parse(data)
+            return data
+        else:
+            posts = []
             for post in plain_posts:
-                if isinstance(post, ParsingError):
-                    posts.append(post)
-                    continue
-                data = await self._scraper.get_post_info(post.id, session)
-                posts.append(data)
+                try:
+                    if isinstance(post, ParsingError):
+                        posts.append(post)
+                        continue
 
-                timeout = random.uniform(0.5, 1.5)
-                await asyncio.sleep(timeout)
+                    data = await self.client.request_info(post.id)
+                    data = self.parser.parse(data)
+                    posts.append(data)
 
-        return posts
+                    await asyncio.sleep(2)
+                except httpx.RequestError:
+                    print('Ошибка реквеста. Жду')
+                    await asyncio.sleep(5)
+                except httpx.ProxyError:
+                    print('Ошибка прокси. Жду')
+                    await asyncio.sleep(5)
+
+            return posts
+        # async with AsyncClient(
+        # ) as session:
+        #     for post in plain_posts:
+        #         if isinstance(post, ParsingError):
+        #             posts.append(post)
+        #             continue
+        #         data = await self._scraper.get_post_info(post.id, session)
+        #         posts.append(data)
+        #
+        #         timeout = random.uniform(0.5, 1.5)
+        #         await asyncio.sleep(timeout)
 
     async def reel(self, reel_id: str) -> ReelModel | None:
         data = await self.client.request_info(reel_id)
@@ -60,16 +86,16 @@ class ClientPublicAsync:
 
 class ClientPrivateAsync:
     def __init__(
-        self, session, inst_session_id: str, token: str, proxy: str | None = None
+        self, session, inst_session_id: str | None = None, token: str | None = None, is_mobile: bool = False, proxy: str | None = None
     ):
-        self._scraper = ScraperAsync()
+        self._scraper = ScraperAsync() if not is_mobile else ScraperMobile()
         self._proxy = proxy
         self.__session = session
         self.__inst_session_id = inst_session_id
         self.__token = token
-        self.media_info = MediaInfoServiceAuthAsync(
-            MediaInfoClientAuthAsync(inst_session_id=inst_session_id)
-        )
+        # self.media_info = MediaInfoServiceAuthAsync(
+        #     MediaInfoClientAuthAsync(inst_session_id=inst_session_id)
+        # )
 
     async def get_account_data(self, username: str) -> Account | ParsingError:
         account = await self._scraper.get_account_data(username, self.__session)
@@ -223,6 +249,7 @@ class MediaInfoRequestAsync:
                 headers=headers,
                 cookies=cookies,
             )
+            print(response.headers)
             if response.headers.get("content-type").split(";")[0] == "text/javascript":
                 return response.text
             if (

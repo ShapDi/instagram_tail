@@ -40,6 +40,8 @@ class InstTailApiAsync(TailApi):
         password: str | None = None,
         inst_session_id: str | None = None,
         token: str | None = None,
+        is_mobile: bool = False,
+        headers: dict | None = None,
         proxy: str | None = None,
     ):
         self._username = username
@@ -49,21 +51,32 @@ class InstTailApiAsync(TailApi):
         self._proxy = proxy
         self.user_id = None
         self._session = None
+        self._is_mobile = is_mobile
+        self._headers = headers
 
     def _init_session(self):
-        headers = {
-            "user-agent": "Mozilla/5.0",
-            "x-ig-app-id": "936619743392459",
-            "x-instagram-ajax": "1",
-            "x-requested-with": "XMLHttpRequest",
-        }
+        if not self._is_mobile:
+            headers = {
+                "user-agent": "Mozilla/5.0",
+                "x-ig-app-id": "936619743392459",
+                "x-instagram-ajax": "1",
+                "x-requested-with": "XMLHttpRequest",
+            }
 
-        cookies = {
-            "sessionid": self._inst_session_id,
-            "csrftoken": self._token,
-            "ds_user_id": self._inst_session_id.split(":")[0],
-        }
-        headers["x-csrftoken"] = self._token
+            cookies = {
+                "sessionid": self._inst_session_id,
+                "csrftoken": self._token,
+                "ds_user_id": self._inst_session_id.split(":")[0],
+            }
+            headers["x-csrftoken"] = self._token
+        else:
+            headers = self._headers
+
+            cookies = {
+                'ds_user_id': self._headers['IG-U-DS-USER-ID'],
+                'mid': self._headers['X-MID'],
+                'rur': self._headers['IG-U-RUR'],
+            }
         timeout = httpx.Timeout(connect=15.0, read=20.0, write=10.0, pool=5.0)
         self._session = AsyncClient(
             headers=headers, cookies=cookies, proxy=self._proxy, timeout=timeout
@@ -71,9 +84,12 @@ class InstTailApiAsync(TailApi):
 
     async def __aenter__(self):
         client = None
-        if self._username is not None and self._password is not None:
-            self._inst_session_id, self._token = await self.get_session_user()
-        if self._inst_session_id is not None and self._token is not None:
+        if not self._is_mobile:
+            if self._username is not None and self._password is not None:
+                self._inst_session_id, self._token = await self.get_session_user()
+            if self._inst_session_id is not None and self._token is not None:
+                self._init_session()
+        else:
             self._init_session()
         if client is None:
             client = await self.get_client()
@@ -103,9 +119,11 @@ class InstTailApiAsync(TailApi):
         return user.session_id, user.token
 
     async def get_client(self) -> ClientPublicAsync | ClientPrivateAsync:
+        if self._is_mobile:
+            return ClientPrivateAsync(session=self._session, is_mobile=True, proxy=self._proxy)
         if self._inst_session_id is not None and self._token is not None:
             if self._session is None:
-                self._init_session
+                self._init_session()
             return ClientPrivateAsync(
                 session=self._session,
                 inst_session_id=self._inst_session_id,
