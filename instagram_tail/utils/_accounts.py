@@ -102,9 +102,7 @@ class AccountPool:
                     return random.choice(working_accounts)
 
             if timeout is not None and (time.monotonic() - start_time) > timeout:
-                raise TimeoutError(
-                    f"Could not find work account in {timeout} seconds"
-                )
+                raise TimeoutError(f"Could not find work account in {timeout} seconds")
 
             # print(
             #     f"[AccountPool] Нет рабочих аккаунтов, жду {check_interval} секунд..."

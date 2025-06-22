@@ -36,8 +36,9 @@ class ClientPublic:
         return posts
 
     def reel(self, reel_id: str) -> ReelModel | None:
-        data =self.client.request_info(reel_id)
+        data = self.client.request_info(reel_id)
         return self.parser.parse(data)
+
 
 class MediaInfoRequest:
     DEFAULT_HEADERS = {
@@ -139,6 +140,7 @@ class MediaInfoRequest:
                 raise Exception("Error on request instagram web api. Wrong request")
         return None
 
+
 class ClientPrivate:
     def __init__(
         self, session, inst_session_id: str, token: str, proxy: str | None = None
@@ -157,11 +159,10 @@ class ClientPrivate:
         return account
 
     def get_plain_posts_data(
-        self, username: str,min_timestamp:int = 1744243200
+        self, username: str, min_timestamp: int = 1744243200
     ) -> list[PlainPost | ParsingError]:
         posts = self._scraper.get_all_posts(username, self.__session, min_timestamp)
         return posts
-
 
 
 class MediaInfoClientAuth:
@@ -187,9 +188,7 @@ class MediaInfoClientAuth:
         #         "Referer": f"https://www.instagram.com/reel/DIf1n68ClEc/",
         #     }
         # )
-        with Client(
-            headers=self.__headers, cookies=self.__cookies
-        ) as session:
+        with Client(headers=self.__headers, cookies=self.__cookies) as session:
             response = session.get(
                 f"https://www.instagram.com/api/v1/media/{media_id}/info/"
             )

@@ -13,7 +13,10 @@ from instagram_tail._model import (
     Post,
     ParsingError,
 )
-from instagram_tail._params_service import InstagramApiParamsServicePrivateAsync, InstagramApiParamsServicePrivate
+from instagram_tail._params_service import (
+    InstagramApiParamsServicePrivateAsync,
+    InstagramApiParamsServicePrivate,
+)
 from instagram_tail._parsers import ReelInfoParser, MediaInfoParserAuth
 from instagram_tail._scraper import ScraperAsync
 from instagram_tail.auth.exceptions import InstagramSessionExpiredException
@@ -28,11 +31,11 @@ class ClientPublicAsync:
         self._session = session
 
     async def get_full_posts(
-        self, plain_posts: list[PlainPost],
+        self,
+        plain_posts: list[PlainPost],
     ) -> list[Post | ParsingError]:
         posts: list[Post | ParsingError] = []
-        async with AsyncClient(
-        ) as session:
+        async with AsyncClient() as session:
             for post in plain_posts:
                 if isinstance(post, ParsingError):
                     posts.append(post)
@@ -57,7 +60,6 @@ class ClientPublicAsync:
     #     return data
 
 
-
 class ClientPrivateAsync:
     def __init__(
         self, session, inst_session_id: str, token: str, proxy: str | None = None
@@ -76,9 +78,11 @@ class ClientPrivateAsync:
         return account
 
     async def get_plain_posts_data(
-        self, username: str,min_timestamp:int = 1744243200
+        self, username: str, min_timestamp: int = 1744243200
     ) -> list[PlainPost | ParsingError]:
-        posts = await self._scraper.get_all_posts(username, self.__session, min_timestamp)
+        posts = await self._scraper.get_all_posts(
+            username, self.__session, min_timestamp
+        )
         return posts
 
     # TODO Fix the loading of reel statistics through an authorized account
@@ -139,8 +143,6 @@ class ClientPrivateAsync:
     #         return None
 
 
-
-
 class MediaInfoRequestAsync:
     DEFAULT_HEADERS = {
         "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
@@ -172,7 +174,7 @@ class MediaInfoRequestAsync:
         self.params_service = InstagramApiParamsServicePrivateAsync(proxy=self.proxy)
         self.headers: dict = self.DEFAULT_HEADERS if headers is None else headers
 
-    async def   request_info(self, reel_id: str) -> str | None:
+    async def request_info(self, reel_id: str) -> str | None:
         headers = self.headers.copy()
         cookies = {}
         settings = await self.params_service.params()
@@ -242,7 +244,6 @@ class MediaInfoRequestAsync:
         return None
 
 
-
 class MediaInfoClientAuthAsync:
     USER_AGENT = "'User-Agent':'Instagram 76.0.0.15.395 Android (24/7.0; 640dpi; 1440x2560; samsung; SM-G930F; herolte; samsungexynos8890; en_US; 138226743)'"
 
@@ -285,7 +286,6 @@ class MediaInfoClientAuthAsync:
                 return None
 
 
-
 class MediaInfoServiceAuthAsync:
     def __init__(
         self,
@@ -304,4 +304,3 @@ class MediaInfoServiceAuthAsync:
             raise InstagramSessionExpiredException(
                 "Maybe your session id is expired or invalid"
             )
-

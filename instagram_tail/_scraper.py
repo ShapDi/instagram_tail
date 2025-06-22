@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 from urllib.parse import quote, urljoin
 
-from httpx import AsyncClient, HTTPStatusError,Client
+from httpx import AsyncClient, HTTPStatusError, Client
 
 from instagram_tail._exceptions import AccountBlockedException
 from instagram_tail._model import Account, PlainPost, PostModel, ParsingError, ReelModel
@@ -27,9 +27,7 @@ class ScraperAsync:
             if e.response.status_code == 404:
                 return ParsingError(f"Account {username} not found (possibly deleted)")
             elif e.response.status_code == 302:
-                print(
-                    f"Status 302 when parsing {username}. Text: {e.response.headers}"
-                )
+                print(f"Status 302 when parsing {username}. Text: {e.response.headers}")
                 redirect_url = urljoin(url, r.headers.get("location", ""))
                 if "/challenge/" in redirect_url:
                     raise AccountBlockedException(
@@ -216,6 +214,7 @@ class ScraperAsync:
             play_count=media.get("video_play_count"),
         )
 
+
 class Scraper:
     def get_account_data(
         self, username: str, session: Client
@@ -229,9 +228,7 @@ class Scraper:
             if e.response.status_code == 404:
                 return ParsingError(f"Account {username} not found (possibly deleted)")
             elif e.response.status_code == 302:
-                print(
-                    f"Status 302 when parsing {username}. Text: {e.response.headers}"
-                )
+                print(f"Status 302 when parsing {username}. Text: {e.response.headers}")
                 redirect_url = urljoin(url, r.headers.get("location", ""))
                 if "/challenge/" in redirect_url:
                     raise AccountBlockedException(

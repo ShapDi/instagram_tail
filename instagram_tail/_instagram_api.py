@@ -6,14 +6,10 @@ from httpx import AsyncClient, Client
 
 from instagram_tail.auth.web_login_service import WebLoginServiceAsync, WebLoginService
 from instagram_tail.clients.client import ClientPublic, ClientPrivate
-from instagram_tail.clients.client_async import (
-    ClientPublicAsync,
-    ClientPrivateAsync
-)
+from instagram_tail.clients.client_async import ClientPublicAsync, ClientPrivateAsync
 
 
 class TailApi(ABC):
-
     @abstractmethod
     def _init_session(self):
         pass
@@ -29,8 +25,6 @@ class TailApi(ABC):
     @abstractmethod
     def get_client(self):
         pass
-
-
 
 
 class InstTailApiAsync(TailApi):
@@ -127,6 +121,7 @@ class InstTailApiAsync(TailApi):
 
         return ClientPublicAsync(proxy=self._proxy, session=self._session)
 
+
 class InstTailApi(TailApi):
     def __init__(
         self,
@@ -154,14 +149,14 @@ class InstTailApi(TailApi):
             client = self.get_client()
         return client
 
-    def __exit__(self,
+    def __exit__(
+        self,
         exc_type: type[BaseException] | None = None,
         exc_value: BaseException | None = None,
         traceback: TracebackType | None = None,
     ) -> None:
         if self._session is not None:
             self._session.close
-
 
     def _init_session(self):
         headers = {
@@ -182,21 +177,16 @@ class InstTailApi(TailApi):
             headers=headers, cookies=cookies, proxy=self._proxy, timeout=timeout
         )
 
-
     def close(self):
         self._session.close()
 
-
     def get_session_user(self) -> (str, str):
-        short_user, user = WebLoginService().login(
-            self._username, self._password
-        )
+        short_user, user = WebLoginService().login(self._username, self._password)
         self._inst_session_id = user.session_id
         self._token = user.token
         # print(f"Session: {user.session_id}\n Token: {user.token}")
         self.user_id = short_user.userId
         return user.session_id, user.token
-
 
     def get_client(self) -> ClientPublic | ClientPrivate:
         if self._inst_session_id is not None and self._token is not None:
