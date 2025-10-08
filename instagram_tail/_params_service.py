@@ -249,7 +249,8 @@ class InstagramApiParamsServicePrivateAsync:
             required_setting_names = self.DEFAULT_REQUIRED_SETTINGS
         settings: dict[str, InstagramSettingDataClassPrivate] = {}
         async with AsyncClient(proxy=self.proxy) as session:
-            response = await session.get(url=page_url)
+            print(page_url)
+            response = await session.get(url=page_url, timeout=10)
             if (
                 response.status_code == 200
                 and response.headers.get("content-type").split(";")[0] == "text/html"
@@ -293,6 +294,7 @@ class InstagramApiParamsServicePrivateAsync:
                     script_element = element
         settings_json = json.loads(script_element.text)
         settings = {}
+        print(settings_json)
         for settings_item in settings_json["require"][0][3][0]["__bbox"]["define"]:
             settings_name, _, settings_dict, settings_value = settings_item
             settings.update(
